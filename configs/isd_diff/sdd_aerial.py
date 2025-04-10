@@ -5,7 +5,7 @@ _base_ = [
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     pretrained='open-mmlab://resnet18_v1c',
-    down_ratio=4,
+    down_ratio=1,
     backbone=dict(depth=18),
     decode_head=[
         dict(

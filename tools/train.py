@@ -51,7 +51,7 @@ def parse_args():
         nargs='+',
         help='ids of gpus to use '
         '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=None, help='random seed')
+    parser.add_argument('--seed', type=int, default=0, help='random seed')
     parser.add_argument(
         '--deterministic',
         action='store_true',
@@ -183,6 +183,15 @@ def main():
     #     param.requires_grad = False
 
 
+    # for param in model.parameters():
+    #     param.requires_grad = False
+    #
+    # for param in model.refine_head.shallow_diff.parameters():
+    #     param.requires_grad = True
+    # for param in model.refine_head.spnet.parameters():
+    #     param.requires_grad = True
+    # for param in model.refine_head.sp_fuse.parameters():
+    #     param.requires_grad = True
 
     train_segmentor(
         model,

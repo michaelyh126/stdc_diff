@@ -227,10 +227,10 @@ class SddHead(BaseCascadeDecodeHead):
                 type='BCEDiceLoss'))
         self.fuse_diff=DiffHead(in_channels=1,in_index=3,channels=64,dropout_ratio=0.1,num_classes=self.num_classes,align_corners=False,loss_decode=dict(
                 type='BCEDiceLoss'))
-        self.detail_loss=DetailAggregateLoss()
+        # self.detail_loss=DetailAggregateLoss()
         # self.diff_point_shallow=DiffPoint(in_channels=[256],channels=256,num_classes=19,align_corners=False,in_index=[0])
         # self.diff_point_fuse=DiffPoint(in_channels=[256],channels=256,num_classes=19,align_corners=False,in_index=[0])
-        self.bag=Bag(128,128)
+        # self.bag=Bag(128,128)
         self.refine_mlp=ConvModule(512,self.num_classes,1,1)
 
 
@@ -271,23 +271,13 @@ class SddHead(BaseCascadeDecodeHead):
 
         if train_flag:
             loss_shallow_diff, diff_map, diff_pred_shallow = self.shallow_diff.forward_train_diff(feat16_cls, img_metas, gt, train_cfg)
-            # shallow_mask = torch.sigmoid(diff_pred_shallow)
-            # shallow_mask = (mask > 0.5).float()
-            # shallow_mask_inverse=(mask<=0.5).float()
-            # masked_shallow_feat16=shallow_feat16*mask
-            # masked_shallow_logit=self.refine_mlp(masked_shallow_feat16)
-
-            # _, aux_feat16, fused_feat_16 = self.fuse16(shallow_feat16, deep_feat)
-            # _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, fused_feat_16)
 
             _, aux_feat16, fused_feat_16 = self.diff_fusion1(shallow_feat16, deep_feat,diff_pred_deep)
             _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, fused_feat_16)
             _, aux_feat8, fused_feat_8 = self.diff_fusion2(fused_feat_8, fused_feat_16,diff_pred_shallow)
 
             output = self.cls_seg(fused_feat_8)
-            # loss_fuse_diff,diff_map,diff_pred=self.fuse_diff.forward_train_diff(output,img_metas,gt,train_cfg)
 
-            output = self.dysampler(output)
 
             output_aux16 = self.conv_seg_aux_16(aux_feat8)
             output_aux8 = self.conv_seg_aux_8(aux_feat16)
@@ -305,7 +295,7 @@ class SddHead(BaseCascadeDecodeHead):
             _, aux_feat8, fused_feat_8 = self.diff_fusion2(fused_feat_8, fused_feat_16,diff_pred_shallow)
             # refine_fused_feat_8 = self.bag(shallow_feat16, fused_feat_8, mask)
             output = self.cls_seg(fused_feat_8)
-            output = self.dysampler(output)
+            # output = self.dysampler(output)
             return output
 
     def image_recon_loss(self, img, pred, re_weight=0.5):

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from mmcv.cnn import ConvModule
 from ..builder import HEADS
 from .cascade_decode_head import BaseCascadeDecodeHead
-from .sdd_stdc_head import ShallowNet
+from .sdd_stdc_head import ShallowNet,ShallowNet_diff
 from .diff_fusion import FeatureFusionModule
 from .harr import HarrUp
 from mmseg.ops import resize
@@ -13,8 +13,10 @@ from mmseg.models.losses.detail_loss import DetailAggregateLoss
 from .pid import Bag
 from .diff_head import DiffHead
 from .diff_point import DiffPoint
-from .spnet import SpNet,get_coordsandfeatures
+from .spnet import SpNet,get_coordsandfeatures,SparseResNet50
+from .spnetv2 import SpNetV2
 from other_utils.split_tensor import split_tensor,restore_tensor
+from .FreqFusion import FreqFusion
 
 class SegmentationHead(nn.Module):
     def __init__(self, conv_cfg, norm_cfg, act_cfg, in_channels, mid_channels, n_classes, *args, **kwargs):
@@ -213,20 +215,25 @@ class Reducer(nn.Module):
 
 @HEADS.register_module()
 class STDCDiffHead(BaseCascadeDecodeHead):
-    def __init__(self, down_ratio, prev_channels, reduce=False, **kwargs):
+    def __init__(self, down_ratio, prev_channels,img_size, reduce=False, **kwargs):
         super(STDCDiffHead, self).__init__(**kwargs)
         self.down_ratio = down_ratio
 
-        self.stdc_net = ShallowNet(in_channels=6, pretrain_model="/root/autodl-tmp/pretrained models/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        # self.stdc_net = ShallowNet(in_channels=6, pretrain_model="/root/autodl-tmp/pretrained models/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/pretrained models/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        # self.stdc_net_diff = ShallowNet_diff(in_channels=6, pretrain_model="/root/autodl-tmp/pretrained models/STDCNet813M_73.91.tar",num_classes=self.num_classes)
         self.shallow_diff=DiffHead(in_channels=1,in_index=3,channels=64,dropout_ratio=0.1,num_classes=self.num_classes,align_corners=False,loss_decode=dict(
                 type='BCEDiceLoss'))
+        self.freqfusion=FreqFusion(128,128)
+        self.addConv=nn.Conv2d(128,self.channels,stride=1,kernel_size=3,padding=1)
 
         # self.fuse_diff=DiffHead(in_channels=1,in_index=3,channels=64,dropout_ratio=0.1,num_classes=self.num_classes,align_corners=False,loss_decode=dict(
         #         type='BCEDiceLoss'))
         # self.detail_loss=DetailAggregateLoss()
 
 
-        self.convert_shallow16=nn.Conv2d(512,self.channels,stride=1,kernel_size=3,padding=1)
+        self.convert_shallow16=nn.Conv2d(512,self.channels,stride=1,kernel_size=1)
+        self.convert_shallow8=nn.Conv2d(256,self.channels,stride=1,kernel_size=1)
         self.fuse8 = RelationAwareFusion(self.channels, self.conv_cfg, self.norm_cfg, self.act_cfg, ext=2)
         self.lap_prymaid_conv = Lap_Pyramid_Conv(num_high=2)
         self.conv_seg_aux_16 = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels,
@@ -237,128 +244,281 @@ class STDCDiffHead(BaseCascadeDecodeHead):
                                          self.channels // 2, self.num_classes, kernel_size=1)
 
         self.reduce = Reducer() if reduce else None
-        self.spnet = SpNet((1224, 1224), num_classes=7)
-        self.diff_flag=True
+        # self.spnet = SpNet(img_size, num_classes=self.num_classes)
+        # self.spnet = SparseResNet50(img_size, num_classes=self.num_classes)
+        self.diff_flag=3
         self.sp_fuse=ConvModule(in_channels=self.num_classes*2,out_channels=self.num_classes,kernel_size=3,stride=1,padding=1)
+        # self.bag=Bag(self.num_classes,self.num_classes)
 
 
     def forward(self, inputs, prev_output,  train_flag=True, mask=None,gt=None,img_metas=None,train_cfg=None,diff_pred_deep=None):
         """Forward function."""
-        prymaid_results = self.lap_prymaid_conv.pyramid_decom(inputs)
-        high_residual_1 = prymaid_results[0]
-        high_residual_2 = F.interpolate(prymaid_results[1], prymaid_results[0].size()[2:], mode='bilinear',
-                                        align_corners=False)
-        high_residual_input = torch.cat([high_residual_1, high_residual_2], dim=1)
 
-        shallow_feat8, shallow_feat16,feat16_cls = self.stdc_net(high_residual_input)
+        # prymaid_results = self.lap_prymaid_conv.pyramid_decom(inputs)
+        # high_residual_1 = prymaid_results[0]
+        # high_residual_2 = F.interpolate(prymaid_results[1], prymaid_results[0].size()[2:], mode='bilinear',
+        #                                 align_corners=False)
+        # high_residual_input = torch.cat([high_residual_1, high_residual_2], dim=1)
+        #
+        # shallow_feat8, shallow_feat16 = self.stdc_net(high_residual_input)
+        # shallow_feat16=self.convert_shallow16(shallow_feat16)
+        # # _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, shallow_feat16)
+        # output = self.cls_seg(shallow_feat16)
+        # # output_aux16 = self.conv_seg_aux_16(aux_feat8)
+
+
+        # # 无高频残差无raf
+        # shallow_feat8, shallow_feat16 = self.stdc_net(inputs)
+        # shallow_feat16=self.convert_shallow16(shallow_feat16)
+        # output = self.cls_seg(shallow_feat16)
+
+        # # stdc+freqfusion
+        # shallow_feat8, shallow_feat16 = self.stdc_net(inputs)
+        # shallow_feat16=self.convert_shallow16(shallow_feat16)
+        # shallow_feat8=self.convert_shallow8(shallow_feat8)
+        # _,_,h,w=shallow_feat16.size()
+        # shallow_feat8=F.interpolate(shallow_feat8, size=(h*2, w*2), mode='bilinear', align_corners=False)
+        # _,hr,lr=self.freqfusion(shallow_feat8,shallow_feat16)
+        #
+        # fusion=self.addConv(hr+lr)
+        # output = self.cls_seg(fusion)
+
+        # 无高频残差add
+        shallow_feat8, shallow_feat16 = self.stdc_net(inputs)
         shallow_feat16=self.convert_shallow16(shallow_feat16)
-        _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, shallow_feat16)
-        output = self.cls_seg(fused_feat_8)
-        output_aux16 = self.conv_seg_aux_16(aux_feat8)
-
-
-
-        # deep_feat_up=self.harr_up(deep_feat)
+        shallow_feat8=self.convert_shallow8(shallow_feat8)
+        _, _, h, w = shallow_feat8.size()
+        shallow_feat16 = F.interpolate(shallow_feat16, size=(h , w ), mode='bilinear', align_corners=False)
+        fusion=self.addConv(shallow_feat8+shallow_feat16)
+        output = self.cls_seg(fusion)
 
 
 
         if train_flag:
-            loss_shallow_diff, diff_map, diff_pred_shallow = self.shallow_diff.forward_train_diff(output, img_metas,
-                                                                                                  gt, train_cfg)
-
-            if self.diff_flag==False:
-                return output, output_aux16, loss_shallow_diff
+            if self.diff_flag==1:
+                loss_shallow_diff, diff_map, diff_pred_shallow = self.shallow_diff.forward_train_diff(output, img_metas,
+                                                                                                      gt, train_cfg)
+                diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+                                           align_corners=self.align_corners)
+                diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+                diff_pred_shallow_sig = diff_pred_shallow
+                diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+                gt[diff_pred_shallow == 0] = 255
+                return output, output_aux16,loss_shallow_diff
+            elif self.diff_flag==2:
+                return output, output_aux16
+            elif self.diff_flag == 3:
+                return output
             else:
                 diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
                                    align_corners=self.align_corners)
                 diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+                diff_pred_shallow_sig=diff_pred_shallow
                 diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+                gt[diff_pred_shallow == 0] = 255
+
                 output = resize(output, size=inputs.size()[2:], mode='bilinear',
                                    align_corners=self.align_corners)
-                diff_count_of_ones = torch.sum(diff_pred_shallow == 1)
+                # diff_input=torch.concat([inputs,output],dim=1)
+                # diff_count_of_ones = torch.sum(diff_pred_shallow == 1)
                 diff_input=inputs*diff_pred_shallow
                 b, c, h, w = diff_input.shape
                 coords, features=get_coordsandfeatures(diff_input)
                 diff_output = self.spnet(features, coords, b)
                 diff_output=diff_output.dense()
                 diff_concat=torch.concat([diff_output,output],dim=1)
-                diff_fuse=self.sp_fuse(diff_concat)
+                diff_fuse=diff_output
+                # diff_fuse = self.sp_fuse(diff_concat)
                 sp_loss = self.spnet.sp_loss(diff_fuse, diff_pred_shallow,img_metas,gt, train_cfg)
                 mask = (diff_output != 0)
                 output[mask] = diff_fuse[mask]
                 last_output=output
                 return output, output_aux16, loss_shallow_diff,sp_loss,last_output
         else:
-            diff_pred_shallow=self.shallow_diff.forward_test_diff(output, img_metas)
-            if self.diff_flag==False:
-                return output
-            else:
-                diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
-                                           align_corners=self.align_corners)
-                output = resize(output, size=inputs.size()[2:], mode='bilinear',
-                                align_corners=self.align_corners)
-                diff_pred_left, diff_pred_top_right, diff_pred_bottom_left, diff_pred_bottom_right = split_tensor(
-                    diff_pred_shallow)
-                input_top_left, input_top_right, input_bottom_left, input_bottom_right = split_tensor(inputs)
-                output_top_left, output_top_right, output_bottom_left, output_bottom_right = split_tensor(output)
-                diff_pred_list = [diff_pred_left, diff_pred_top_right, diff_pred_bottom_left, diff_pred_bottom_right]
-                inputs_list = [input_top_left, input_top_right, input_bottom_left, input_bottom_right]
-                output_list = [ output_top_left, output_top_right, output_bottom_left, output_bottom_right]
-                last_output_list=[]
-                for i in range(4):
-                    diff_pred_shallow=diff_pred_list[i]
-                    inputs=inputs_list[i]
-                    output=output_list[i]
-                    diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
-                    diff_pred_shallow = (diff_pred_shallow > 0.5).float()
-                    diff_input=inputs*diff_pred_shallow
-                    b, c, h, w = diff_input.shape
-                    coords, features=get_coordsandfeatures(diff_input)
-                    n,c=coords.shape
-                    if n>0:
-                        diff_output = self.spnet(features, coords, b)
-                        diff_output=diff_output.dense()
-                        diff_concat = torch.concat([diff_output, output], dim=1)
-                        diff_fuse = self.sp_fuse(diff_concat)
-                        mask = (diff_output != 0)
-                        output[mask] = diff_fuse[mask]
-                    last_output_list.append(output)
-                last_output=restore_tensor(last_output_list[0],last_output_list[1],last_output_list[2],last_output_list[3])
+            return output
+            # else:
+            #     diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+            #                                align_corners=self.align_corners)
+            #     output = resize(output, size=inputs.size()[2:], mode='bilinear',
+            #                     align_corners=self.align_corners)
+            #     diff_pred_left, diff_pred_top_right, diff_pred_bottom_left, diff_pred_bottom_right = split_tensor(
+            #         diff_pred_shallow)
+            #     input_top_left, input_top_right, input_bottom_left, input_bottom_right = split_tensor(inputs)
+            #     output_top_left, output_top_right, output_bottom_left, output_bottom_right = split_tensor(output)
+            #     diff_pred_list = [diff_pred_left, diff_pred_top_right, diff_pred_bottom_left, diff_pred_bottom_right]
+            #     inputs_list = [input_top_left, input_top_right, input_bottom_left, input_bottom_right]
+            #     output_list = [ output_top_left, output_top_right, output_bottom_left, output_bottom_right]
+            #     last_output_list=[]
+            #     for i in range(4):
+            #         diff_pred_shallow=diff_pred_list[i]
+            #         inputs=inputs_list[i]
+            #         output=output_list[i]
+            #         diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+            #         diff_pred_shallow_sig = diff_pred_shallow
+            #         diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+            #         # diff_input = torch.concat([inputs, output], dim=1)
+            #         diff_input = inputs * diff_pred_shallow
+            #         # diff_input=inputs*diff_pred_shallow
+            #         b, c, h, w = diff_input.shape
+            #         coords, features=get_coordsandfeatures(diff_input)
+            #         n,c=coords.shape
+            #         if n>0:
+            #             diff_output = self.spnet(features, coords, b)
+            #             diff_output=diff_output.dense()
+            #             diff_concat = torch.concat([diff_output, output], dim=1)
+            #             diff_fuse = diff_output
+            #             # diff_fuse = self.sp_fuse(diff_concat)
+            #             mask = (diff_output != 0)
+            #             output[mask] = diff_fuse[mask]
+            #
+            #         last_output_list.append(output)
+            #     last_output=restore_tensor(last_output_list[0],last_output_list[1],last_output_list[2],last_output_list[3])
+            #
+            #     return last_output
 
-                return last_output
+
+    # def forward(self, inputs, prev_output,  train_flag=True, mask=None,gt=None,img_metas=None,train_cfg=None,diff_pred_deep=None):
+    #     """Forward function."""
+    #     prymaid_results = self.lap_prymaid_conv.pyramid_decom(inputs)
+    #     high_residual_1 = prymaid_results[0]
+    #     high_residual_2 = F.interpolate(prymaid_results[1], prymaid_results[0].size()[2:], mode='bilinear',
+    #                                     align_corners=False)
+    #     high_residual_input = torch.cat([high_residual_1, high_residual_2], dim=1)
+    #
+    #     shallow_feat8, shallow_feat16,feat16_cls = self.stdc_net(high_residual_input)
+    #     shallow_feat16=self.convert_shallow16(shallow_feat16)
+    #     _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, shallow_feat16)
+    #     output = self.cls_seg(fused_feat_8)
+    #     output_aux16 = self.conv_seg_aux_16(aux_feat8)
+    #
+    #     if train_flag:
+    #         loss_shallow_diff, diff_map, diff_pred_shallow = self.shallow_diff.forward_train_diff(output, img_metas,
+    #                                                                                               gt, train_cfg)
+    #
+    #         if self.diff_flag==False:
+    #             return output, output_aux16, loss_shallow_diff
+    #         else:
+    #             diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+    #             diff_pred_shallow_sig = diff_pred_shallow
+    #             diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+    #             output = resize(output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #
+    #             diff_output = self.stdc_net_diff(high_residual_input)
+    #             diff_output = resize(diff_output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_concat=torch.concat([diff_output,output],dim=1)
+    #             diff_fuse=diff_output
+    #             sp_loss = self.spnet.sp_loss(diff_fuse, diff_pred_shallow,img_metas,gt, train_cfg)
+    #             diff_fuse = self.bag(diff_output,output,diff_pred_shallow_sig)
+    #             # mask = (diff_pred_shallow != 0)
+    #             # mask = torch.cat([mask, mask], dim=1)
+    #             # output[mask] = diff_fuse[mask]
+    #             # last_output=output
+    #             return output, output_aux16, loss_shallow_diff,sp_loss,diff_fuse
+    #     else:
+    #         diff_pred_shallow=self.shallow_diff.forward_test_diff(output, img_metas)
+    #         if self.diff_flag==False:
+    #             return output
+    #         else:
+    #             diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+    #             diff_pred_shallow_sig = diff_pred_shallow
+    #             diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+    #             output = resize(output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #
+    #             diff_output = self.stdc_net_diff(high_residual_input)
+    #             diff_output = resize(diff_output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             # diff_concat=torch.concat([diff_output,output],dim=1)
+    #             diff_fuse=diff_output
+    #             diff_fuse = self.bag(diff_output,output,diff_pred_shallow_sig)
+    #             # mask = (diff_pred_shallow != 0)
+    #             # mask = torch.cat([mask, mask], dim=1)
+    #             # output[mask] = diff_fuse[mask]
+    #
+    #
+    #             return diff_fuse
 
 
 
-    def image_recon_loss(self, img, pred, re_weight=0.5):
-        loss = dict()
-        if pred.size()[2:] != img.size()[2:]:
-            pred = F.interpolate(pred, img.size()[2:], mode='bilinear', align_corners=False)
-        recon_loss = F.mse_loss(pred, img) * re_weight
-        loss['recon_losses'] = recon_loss
-        return loss
 
-    def feature_affinity_loss(self, seg_feats, sr_feats, fa_weight=1., eps=1e-6):
-        if seg_feats.size()[2:] != sr_feats.size()[2:]:
-            sr_feats = F.interpolate(sr_feats, seg_feats.size()[2:], mode='bilinear', align_corners=False)
-        loss = dict()
-        # flatten:
-        seg_feats_flatten = torch.flatten(seg_feats, start_dim=2)
-        sr_feats_flatten = torch.flatten(sr_feats, start_dim=2)
-        # L2 norm
-        seg_norm = torch.norm(seg_feats_flatten, p=2, dim=2, keepdim=True)
-        sr_norm = torch.norm(sr_feats_flatten, p=2, dim=2, keepdim=True)
-        # similiarity
-        seg_feats_flatten = seg_feats_flatten / (seg_norm + eps)
-        sr_feats_flatten = sr_feats_flatten / (sr_norm + eps)
-        seg_sim = torch.matmul(seg_feats_flatten.permute(0, 2, 1), seg_feats_flatten)
-        sr_sim = torch.matmul(sr_feats_flatten.permute(0, 2, 1), sr_feats_flatten)
-        # L1 loss
-        loss['fa_loss'] = F.l1_loss(seg_sim, sr_sim.detach()) * fa_weight
-        return loss
+    # def forward(self, inputs, prev_output,  train_flag=True, mask=None,gt=None,img_metas=None,train_cfg=None,diff_pred_deep=None):
+    #     """Forward function."""
+    #     prymaid_results = self.lap_prymaid_conv.pyramid_decom(inputs)
+    #     high_residual_1 = prymaid_results[0]
+    #     high_residual_2 = F.interpolate(prymaid_results[1], prymaid_results[0].size()[2:], mode='bilinear',
+    #                                     align_corners=False)
+    #     high_residual_input = torch.cat([high_residual_1, high_residual_2], dim=1)
+    #
+    #     shallow_feat8, shallow_feat16,feat16_cls = self.stdc_net(high_residual_input)
+    #     shallow_feat16=self.convert_shallow16(shallow_feat16)
+    #     _, aux_feat8, fused_feat_8 = self.fuse8(shallow_feat8, shallow_feat16)
+    #     output = self.cls_seg(fused_feat_8)
+    #     output_aux16 = self.conv_seg_aux_16(aux_feat8)
+    #
+    #     if train_flag:
+    #         loss_shallow_diff, diff_map, diff_pred_shallow = self.shallow_diff.forward_train_diff(output, img_metas,
+    #                                                                                               gt, train_cfg)
+    #
+    #         if self.diff_flag==False:
+    #             return output, output_aux16, loss_shallow_diff
+    #         else:
+    #             diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+    #             diff_pred_shallow_sig = diff_pred_shallow
+    #             diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+    #             output = resize(output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #
+    #             diff_output = self.stdc_net_diff(high_residual_input)
+    #             diff_output = resize(diff_output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_concat=torch.concat([diff_output,output],dim=1)
+    #             diff_fuse=diff_output
+    #             sp_loss = self.spnet.sp_loss(diff_fuse, diff_pred_shallow,img_metas,gt, train_cfg)
+    #             diff_fuse = self.bag(diff_output,output,diff_pred_shallow_sig)
+    #             # mask = (diff_pred_shallow != 0)
+    #             # mask = torch.cat([mask, mask], dim=1)
+    #             # output[mask] = diff_fuse[mask]
+    #             # last_output=output
+    #             return output, output_aux16, loss_shallow_diff,sp_loss,diff_fuse
+    #     else:
+    #         diff_pred_shallow=self.shallow_diff.forward_test_diff(output, img_metas)
+    #         if self.diff_flag==False:
+    #             return output
+    #         else:
+    #             diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+    #             diff_pred_shallow_sig = diff_pred_shallow
+    #             diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+    #             output = resize(output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #
+    #             diff_output = self.stdc_net_diff(high_residual_input)
+    #             diff_output = resize(diff_output, size=inputs.size()[2:], mode='bilinear',
+    #                                align_corners=self.align_corners)
+    #             # diff_concat=torch.concat([diff_output,output],dim=1)
+    #             diff_fuse=diff_output
+    #             diff_fuse = self.bag(diff_output,output,diff_pred_shallow_sig)
+    #             # mask = (diff_pred_shallow != 0)
+    #             # mask = torch.cat([mask, mask], dim=1)
+    #             # output[mask] = diff_fuse[mask]
+    #
+    #
+    #             return diff_fuse
+
+
 
     def forward_train(self, inputs, prev_output, img_metas, gt_semantic_seg, train_cfg,mask=None):
-        if self.diff_flag==False:
-            seg_logits, seg_logits_aux16, loss_shallow_diff= self.forward(inputs, prev_output,
+        if self.diff_flag==1:
+            seg_logits, seg_logits_aux16,loss_shallow_diff= self.forward(inputs, prev_output,
                                                                                                  mask=mask,
                                                                                                  gt=gt_semantic_seg,
                                                                                                  img_metas=img_metas,
@@ -366,20 +526,65 @@ class STDCDiffHead(BaseCascadeDecodeHead):
                                                                                                  diff_pred_deep=mask)
             losses = self.losses(seg_logits, gt_semantic_seg)
             losses_aux16 = self.losses(seg_logits_aux16, gt_semantic_seg)
+            losses['loss_seg']=losses['loss_seg']*2
+            losses_aux16['loss_seg']=losses_aux16['loss_seg']
+
+            # losses_aux16 = torch.tensor(0)
+
             # last_losses = self.losses(last_output, gt_semantic_seg)
 
             # losses_aux8 = self.losses(seg_logits_aux8, gt_semantic_seg)
             # losses_detail = self.detail_loss(shallow_feat4_cls,gt_semantic_seg.squeeze(1) )
-            return losses, losses_aux16, loss_shallow_diff
+            # return losses, losses_aux16, loss_shallow_diff
+            return losses, losses_aux16,\
+                   loss_shallow_diff
+
+
+        elif self.diff_flag==2:
+            seg_logits, seg_logits_aux16= self.forward(inputs, prev_output,
+                                                                                                 mask=mask,
+                                                                                                 gt=gt_semantic_seg,
+                                                                                                 img_metas=img_metas,
+                                                                                                 train_cfg=train_cfg,
+                                                                                                 diff_pred_deep=mask)
+            losses = self.losses(seg_logits, gt_semantic_seg)
+            losses_aux16 = self.losses(seg_logits_aux16, gt_semantic_seg)
+            # losses['loss_seg']=losses['loss_seg']*2
+            # losses_aux16['loss_seg']=losses_aux16['loss_seg']
+
+            # losses_aux16 = torch.tensor(0)
+
+            # last_losses = self.losses(last_output, gt_semantic_seg)
+
+            # losses_aux8 = self.losses(seg_logits_aux8, gt_semantic_seg)
+            # losses_detail = self.detail_loss(shallow_feat4_cls,gt_semantic_seg.squeeze(1) )
+            # return losses, losses_aux16, loss_shallow_diff
+            return losses, losses_aux16
+
+        elif self.diff_flag==3:
+            seg_logits= self.forward(inputs, prev_output,
+                                                                                                 mask=mask,
+                                                                                                 gt=gt_semantic_seg,
+                                                                                                 img_metas=img_metas,
+                                                                                                 train_cfg=train_cfg,
+                                                                                                 diff_pred_deep=mask)
+            losses = self.losses(seg_logits, gt_semantic_seg)
+            # loss_aux=dict()
+            # loss_aux=losses
+            # losses_aux['loss_seg'] = 0
+            return losses
+
         else:
+
             seg_logits, seg_logits_aux16,loss_shallow_diff,sp_loss,last_output= self.forward(inputs, prev_output,mask=mask,gt=gt_semantic_seg,img_metas=img_metas,train_cfg=train_cfg,diff_pred_deep=mask)
             losses = self.losses(seg_logits, gt_semantic_seg)
             losses_aux16 = self.losses(seg_logits_aux16, gt_semantic_seg)
+            loss_fuse=self.losses(last_output,gt_semantic_seg)
             # last_losses = self.losses(last_output, gt_semantic_seg)
 
             # losses_aux8 = self.losses(seg_logits_aux8, gt_semantic_seg)
             # losses_detail = self.detail_loss(shallow_feat4_cls,gt_semantic_seg.squeeze(1) )
-            return losses, losses_aux16, loss_shallow_diff,sp_loss
+            return losses, losses_aux16, loss_shallow_diff,sp_loss,loss_fuse
 
     def forward_test(self, inputs, prev_output, img_metas, test_cfg,mask=None):
         """Forward function for testing.

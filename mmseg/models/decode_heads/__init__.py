@@ -30,8 +30,13 @@ from .diff_head import DiffHead
 from .sdd_head import SddHead
 from .isd_diff_fast_head import ISDDiffFastHead
 from .stdc_diff_head import STDCDiffHead
-
-
+from .stdc_in_head import STDCInHead
+from .isd_pid_head import ISDPidHead
+from .dual_diff_head import DualDiffHead
+from .pid_un_head import PidUnHead
+from .dual_distill_head import DualDistillHead
+from .vit_guidance_head import VitGuidanceHead
+from .single_diff_head import SingleDiffHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -39,5 +44,6 @@ __all__ = [
     'EncHead', 'DepthwiseSeparableFCNHead', 'FPNHead', 'EMAHead', 'DNLHead',
     'PointHead', 'APCHead', 'DMHead', 'LRASPPHead', 'SETRUPHead',
     'SETRMLAHead', 'SegformerHead', 'RefineASPPHead', 'RefineBaseDecodeHead',
-    'ISDHead','DiffHead','ISDDiffHead','SddHead','ISDDiffFastHead','STDCDiffHead'
+    'ISDHead','DiffHead','ISDDiffHead','SddHead','ISDDiffFastHead','STDCDiffHead',
+    'STDCInHead','ISDPidHead','DualDiffHead','PidUnHead','DualDistillHead','VitGuidanceHead','SingleDiffHead'
 ]

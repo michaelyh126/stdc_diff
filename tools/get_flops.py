@@ -8,12 +8,12 @@ from mmseg.models import build_segmentor
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
-    parser.add_argument('config', help='train config file path')
+    parser.add_argument('--config', help='train config file path')
     parser.add_argument(
         '--shape',
         type=int,
         nargs='+',
-        default=[2048, 1024],
+        default=[2448, 2448],
         help='input image size')
     args = parser.parse_args()
     return args

@@ -40,7 +40,7 @@ def compute_acc(pred,label):
     acc=intersection/pred_sum
     return acc
 
-def compute_miou(pred, label, num_classes):
+def compute_iou(pred, label, num_classes):
     """计算 mIoU"""
     iou_list = []
     cls=1
@@ -61,6 +61,27 @@ def compute_miou(pred, label, num_classes):
     # 计算 mIoU
     iou = np.mean(iou_list)
     return iou
+
+def compute_miou(pred, label, num_classes):
+    iou_list = []
+
+    for cls in range(num_classes):
+        # 预测中属于当前类别的像素
+        pred_cls = (pred == cls)
+        # 标签中属于当前类别的像素
+        label_cls = (label == cls)
+
+        # 计算交集和并集
+        intersection = np.logical_and(pred_cls, label_cls).sum()
+        union = np.logical_or(pred_cls, label_cls).sum()
+
+        # 计算 IoU（避免除零）
+        iou = intersection / union if union != 0 else 0
+        iou_list.append(iou)
+
+    # 计算 mIoU，即所有类别 IoU 的平均值
+    mean_iou = np.mean(iou_list)
+    return mean_iou
 
 if __name__ == '__main__':
 

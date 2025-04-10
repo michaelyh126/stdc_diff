@@ -7,7 +7,7 @@ crop_size = (1224, 1224)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
-    dict(type='Resize', img_scale=(2448, 2448), ratio_range=(1., 1.)),
+    dict(type='Resize', img_scale=(2448, 2448), ratio_range=(0.5, 2)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
@@ -33,7 +33,7 @@ test_pipeline = [
 ]
 data = dict(
     samples_per_gpu=8,
-    workers_per_gpu=8,
+    workers_per_gpu=22,
     train=dict(
         type=dataset_type,
         data_root=data_root,

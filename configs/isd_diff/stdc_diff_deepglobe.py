@@ -26,6 +26,7 @@ model = dict(
             in_channels=3,
             prev_channels=128,
             down_ratio=4,
+            img_size=(1224,1224),
             channels=128,
             num_classes=7,
             dropout_ratio=0.1,

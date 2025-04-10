@@ -149,7 +149,7 @@ class IsdD(EncoderDecoder):
         loss_decode, prev_features = self.decode_head.forward_train(
             x, img_metas, gt_semantic_seg, self.train_cfg)
         losses.update(add_prefix(loss_decode, 'decode'))
-        loss_diff,diff_map, diff_pred = self.diff_head.forward_train_diff(prev_features[1], img_metas, gt_semantic_seg,
+        loss_diff,diff_map, diff_pred = self.diff_head.forward_train_diff(prev_features[1],  img_metas, gt_semantic_seg,
                                                                  self.train_cfg)
         losses.update(add_prefix(loss_diff,'diff_deep'))
 

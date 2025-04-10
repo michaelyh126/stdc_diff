@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 
 
+
 def normal_init(module, mean=0, std=1, bias=0):
     if hasattr(module, 'weight') and module.weight is not None:
         nn.init.normal_(module.weight, mean, std)

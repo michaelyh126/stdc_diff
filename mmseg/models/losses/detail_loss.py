@@ -5,6 +5,7 @@ from torch.nn import functional as F
 import cv2
 import numpy as np
 import json
+from .bce_dice_loss import BCEDiceLoss
 
 def dice_loss_func(input, target):
     smooth = 1.
@@ -40,7 +41,7 @@ def get_boundary(gtmasks):
 class DetailAggregateLoss(nn.Module):
     def __init__(self, *args, **kwargs):
         super(DetailAggregateLoss, self).__init__()
-
+        self.bce_dice_loss=BCEDiceLoss()
         self.laplacian_kernel = torch.tensor(
             [-1, -1, -1, -1, 8, -1, -1, -1, -1],
             dtype=torch.float32).reshape(1, 1, 3, 3).requires_grad_(False).type(torch.cuda.FloatTensor)
@@ -93,13 +94,21 @@ class DetailAggregateLoss(nn.Module):
             boundary_logits = F.interpolate(
                 boundary_logits, boundary_targets.shape[2:], mode='bilinear', align_corners=True)
 
-        # from other_utils.heatmap import save_heatmap
-        # save_heatmap(boudary_targets_pyramid[0].detach().cpu().numpy(),save_dir='D:\isd\ISDNet-local\heatmap', filename="heatmap.png", channel=0)
+        # from other_utils.heatmap import save_heatmap,save_image
+        # boundary_logits_sig=torch.sigmoid(boundary_logits)
+        # boundary_logits_sig=(boundary_logits_sig>0.5).float()
+        # # save_heatmap(boudary_targets_pyramid[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="boundary_gt.png", channel=0)
+        # # save_heatmap(boundary_logits[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="boundary_logit.png", channel=0)
+        # save_image(boudary_targets_pyramid[0].squeeze().detach().cpu().numpy(), filename='boundary_gt',
+        #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+        # save_image(boundary_logits_sig[0].squeeze().detach().cpu().numpy(), filename='boundary_logits',
+        #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
 
 
-        bce_loss = F.binary_cross_entropy_with_logits(boundary_logits, boudary_targets_pyramid)
-        dice_loss = dice_loss_func(torch.sigmoid(boundary_logits), boudary_targets_pyramid)
-        dic={'loss_detail':0.1*(bce_loss+dice_loss)}
+        bce_dice_loss=self.bce_dice_loss(boundary_logits,boudary_targets_pyramid.squeeze(1))
+        # bce_loss = F.binary_cross_entropy_with_logits(boundary_logits, boudary_targets_pyramid)
+        # dice_loss = dice_loss_func(torch.sigmoid(boundary_logits), boudary_targets_pyramid)
+        dic={'loss_detail':0.1*bce_dice_loss}
         return dic
 
     def get_params(self):

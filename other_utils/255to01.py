@@ -39,7 +39,7 @@ import torchvision.transforms as transforms
 if __name__ == '__main__':
 
     # 指定要处理的文件夹路径
-    folder_path = "D:\deep_learning\ISDNet-main\\root_path\labels\\test"
+    folder_path = "/root/autodl-tmp/Levir/labels/val"
 
     # 检查是否有可用的 GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

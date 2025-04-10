@@ -118,11 +118,12 @@ class STDCDiff(EncoderDecoder):
         training."""
         losses = dict()
         prev_features=None
-        loss_refine, *loss_contrsative_list = self.refine_head.forward_train(img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
+        # loss_refine, *loss_contrsative_list = self.refine_head.forward_train(img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
+        loss_refine= self.refine_head.forward_train(img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
         losses.update(add_prefix(loss_refine, 'refine'))
 
-        j = 1
-        for loss_aux in loss_contrsative_list:
-            losses.update(add_prefix(loss_aux, 'aux_' + str(j)))
-            j += 1
+        # j = 1
+        # for loss_aux in loss_contrsative_list:
+        #     losses.update(add_prefix(loss_aux, 'aux_' + str(j)))
+        #     j += 1
         return losses

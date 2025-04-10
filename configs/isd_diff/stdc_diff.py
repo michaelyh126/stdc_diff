@@ -25,6 +25,7 @@ model = dict(
             type='STDCDiffHead',
             in_channels=3,
             prev_channels=128,
+            img_size=(2500,2500),
             down_ratio=4,
             channels=128,
             num_classes=2,

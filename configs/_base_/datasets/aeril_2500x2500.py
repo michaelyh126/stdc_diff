@@ -11,7 +11,7 @@ train_pipeline = [
     dict(type='Resize', img_scale=(5000, 5000), ratio_range=(1., 1.)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='RandomRotate', prob=0., degree=(90, 270)),
+    dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=255),
@@ -35,7 +35,7 @@ test_pipeline = [
 ]
 data = dict(
     samples_per_gpu=2,
-    workers_per_gpu=8,
+    workers_per_gpu=22,
     train=dict(
         type=dataset_type,
         data_root=data_root,

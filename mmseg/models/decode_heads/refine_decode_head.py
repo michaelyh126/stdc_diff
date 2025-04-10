@@ -8,7 +8,7 @@ from mmseg.core import build_pixel_sampler
 from mmseg.ops import resize
 from ..builder import build_loss
 from ..losses import accuracy
-from other_utils.heatmap import save_image,save_heatmap
+from other_utils.heatmap import save_image,save_heatmap,save_rgb_image
 
 
 class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
@@ -48,7 +48,7 @@ class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
                  in_channels=128,
                  channels=128,
                  *,
-                 num_classes,
+                 num_classes=7,
                  dropout_ratio=0.1,
                  conv_cfg=None,
                  norm_cfg=None,
@@ -179,44 +179,62 @@ class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
         return diff
 
     def sp_loss(self,inputs,mask, img_metas, gt_semantic_seg, train_cfg):
-        mask0 = torch.sum(mask == 1)
         mask = mask.to(torch.int64)
-        mask1=torch.sum(mask==1)
         gt_semantic_seg[mask == 0] = 255
-        inputs_cls=torch.argmax(inputs,dim=1)
-        count_of_ones = torch.sum(inputs_cls == 1)
-        gt_count_of_ones = torch.sum(gt_semantic_seg == 1)
-        gt_count_of_zeros = torch.sum(gt_semantic_seg == 0)
-        point_num=gt_count_of_ones+gt_count_of_zeros
+
+        # inputs_cls=torch.argmax(inputs,dim=1).unsqueeze(1)
+        # inputs_cls[mask==0]=255
+        # save_image(gt_semantic_seg[0].squeeze().detach().cpu().numpy(), filename='sp_gt',
+        #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+        # save_image(inputs_cls[0].squeeze().detach().cpu().numpy(), filename='sp_pred',
+        #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+
         losses = self.losses(inputs, gt_semantic_seg)
 
         return losses
 
+    def forward_train_error_gt(self, inputs, img_metas=None, gt_semantic_seg=None, train_cfg=None):
+        seg_logit=inputs
+        if gt_semantic_seg!=None:
+            seg_logit=resize(seg_logit,size=gt_semantic_seg.size()[2:],mode='bilinear',align_corners=self.align_corners)
+            diff_gt=self.get_uncertainty_map_gt(seg_logit,gt_semantic_seg)
+            diff_gt = diff_gt.unsqueeze(1)
+            return diff_gt
+        else:
+            return
 
 
     def forward_train_diff(self, inputs, img_metas=None, gt_semantic_seg=None, train_cfg=None):
         seg_logit=inputs
         top_two_values, _ = torch.topk(seg_logit, k=2, dim=1)
         abs_diff = torch.abs(top_two_values[:, 0, :, :] - top_two_values[:, 1, :, :])
-        # min_value = abs_diff.min()
-        # max_value = abs_diff.max()
-        # inverted_diff = max_value - abs_diff + min_value
-        diff_map,diff_pred=self.forward(abs_diff.unsqueeze(1))
+        abs_diff=abs_diff.unsqueeze(1)
+        # img_ori_resize = resize(img_ori, size=seg_logit.size()[2:], mode='bilinear',
+        #                    align_corners=self.align_corners)
+        # seg_logit_concat=torch.concat([abs_diff,img_ori_resize,seg_logit],dim=1)
+        diff_map,diff_pred=self.forward(abs_diff)
         if gt_semantic_seg!=None:
             seg_logit=resize(seg_logit,size=gt_semantic_seg.size()[2:],mode='bilinear',align_corners=self.align_corners)
             diff_gt=self.get_uncertainty_map_gt(seg_logit,gt_semantic_seg)
 
-            save_image(diff_gt[0].squeeze().detach().cpu().numpy(), filename='diff_gt',
-                       save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
-            seg_logit_cls=torch.argmax(seg_logit,dim=1)
-            save_image(seg_logit_cls[0].detach().cpu().numpy(), 'deep_pred', '/root/autodl-tmp/isdnet_harr/diff_dir')
-            diff_pred_save = resize(input=diff_pred, size=gt_semantic_seg.shape[2:], mode='bilinear',align_corners=self.align_corners)
-            diff_pred_save = torch.sigmoid(diff_pred_save)
-            diff_pred_save = (diff_pred_save > 0.5).float()
-            save_image(diff_pred_save[0].squeeze().detach().cpu().numpy(), filename='diff_pred',
-                       save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
-            save_image(diff_pred_save[1].squeeze().detach().cpu().numpy(), filename='diff_pred1',
-                       save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+
+
+            # save_image(diff_gt[0].squeeze().detach().cpu().numpy(), filename='diff_gt',
+            #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+            # seg_logit_cls=torch.argmax(seg_logit,dim=1)
+            # save_rgb_image(seg_logit_cls[0].detach().cpu().numpy(), 'deep_pred', '/root/autodl-tmp/isdnet_harr/diff_dir')
+            # # save_image(seg_logit_cls[0].detach().cpu().numpy(), 'deep_pred', '/root/autodl-tmp/isdnet_harr/diff_dir')
+            # diff_pred_save = resize(input=diff_pred, size=gt_semantic_seg.shape[2:], mode='bilinear',align_corners=self.align_corners)
+            # diff_pred_save = torch.sigmoid(diff_pred_save)
+            # diff_pred_save = (diff_pred_save > 0.5).float()
+            # save_image(diff_pred_save[0].squeeze().detach().cpu().numpy(), filename='diff_pred',
+            #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+            # save_rgb_image(gt_semantic_seg[0].squeeze().detach().cpu().numpy(), filename='gt',
+            #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+            # # save_image(gt_semantic_seg[0].squeeze().detach().cpu().numpy(), filename='gt',
+            # #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
+
+
 
             diff_gt = diff_gt.unsqueeze(1)
 
@@ -224,19 +242,19 @@ class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
             losses['loss_seg']=0.05*losses['loss_seg']
             # diff_pred = torch.argmax(diff_pred, dim=1)
             # diff_pred = diff_pred.unsqueeze(1)
-            return losses,diff_map,diff_pred
+            return losses,diff_map,diff_pred,diff_gt
         else:
             return diff_pred
 
-    def forward_test_diff(self,inputs, img_metas, test_cfg=None):
+    def forward_test_diff(self,inputs, img_metas=None, test_cfg=None):
         seg_logit = inputs
         top_two_values, _ = torch.topk(seg_logit, k=2, dim=1)
         abs_diff = torch.abs(top_two_values[:, 0, :, :] - top_two_values[:, 1, :, :])
-
-        # min_value = abs_diff.min()
-        # max_value = abs_diff.max()
-        # inverted_diff = max_value - abs_diff + min_value
-        diff_map, diff_pred = self.forward(abs_diff.unsqueeze(1))
+        abs_diff=abs_diff.unsqueeze(1)
+        # img_ori_resize = resize(img_ori, size=seg_logit.size()[2:], mode='bilinear',
+        #                    align_corners=self.align_corners)
+        # seg_logit_concat=torch.concat([abs_diff,img_ori_resize,seg_logit],dim=1)
+        diff_map, diff_pred = self.forward(abs_diff)
         # diff_pred = torch.argmax(diff_pred, dim=1)
         # diff_pred = diff_pred.unsqueeze(1)
 

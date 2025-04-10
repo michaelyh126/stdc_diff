@@ -5,10 +5,11 @@ from .dice_loss import DiceLoss
 from .lovasz_loss import LovaszLoss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 from .bce_dice_loss import BCEDiceLoss
+from .alignment_loss import AlignmentLoss
 
 __all__ = [
     'accuracy', 'Accuracy', 'cross_entropy', 'binary_cross_entropy',
     'mask_cross_entropy', 'CrossEntropyLoss', 'reduce_loss',
     'weight_reduce_loss', 'weighted_loss', 'LovaszLoss', 'DiceLoss',
-    'BCEDiceLoss'
+    'BCEDiceLoss','AlignmentLoss'
 ]

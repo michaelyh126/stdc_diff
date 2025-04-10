@@ -3,6 +3,86 @@ from torch import nn
 import torch
 from .refine_decode_head import RefineBaseDecodeHead
 
+class SparseBottleneck(nn.Module):
+    def __init__(self, in_channels, mid_channels, out_channels, stride=1, indice_key=None):
+        super(SparseBottleneck, self).__init__()
+        self.spconv1=spconv.SparseSequential(
+            spconv.SubMConv2d(in_channels=in_channels,out_channels=mid_channels,kernel_size=1,indice_key=indice_key),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(),)
+        self.spconv2=spconv.SparseSequential(
+            spconv.SubMConv2d(in_channels=mid_channels,out_channels=mid_channels,kernel_size=3,indice_key=indice_key),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(),)
+        self.spconv3=spconv.SparseSequential(
+            spconv.SubMConv2d(in_channels=mid_channels,out_channels=out_channels,kernel_size=1,indice_key=indice_key),
+            nn.BatchNorm1d(out_channels),
+            nn.ReLU(),)
+
+
+        # Shortcut connection
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = spconv.SparseSequential(
+                spconv.SubMConv2d(in_channels, out_channels, kernel_size=1, stride=stride, indice_key=indice_key),
+                nn.BatchNorm1d(out_channels)
+            )
+
+    def forward(self, x):
+        residual = self.shortcut(x)
+        x=self.spconv1(x)
+        x=self.spconv2(x)
+        out=self.spconv3(x)
+        # Element-wise addition for residual connection
+        out =out.replace_feature(residual.features+out.features)
+        return out
+
+
+
+
+class SparseResNet50(RefineBaseDecodeHead):
+    def __init__(self, shape,**kwargs):
+        super(SparseResNet50,self).__init__(**kwargs)
+        self.shape = shape
+        num_classes=self.num_classes
+
+        # Initial Convolution Layer
+        self.conv1 = spconv.SparseSequential(
+            spconv.SubMConv2d(3, 32, kernel_size=7, stride=2, padding=3, indice_key="subm0"),
+            nn.BatchNorm1d(32),
+            nn.ReLU()
+        )
+
+        # Define each block group in ResNet
+        self.layer1 = self._make_layer(32, 64, 128, num_blocks=3, stride=1, indice_key="subm1")
+        self.layer2 = self._make_layer(128, 256, 128, num_blocks=3, stride=1, indice_key="subm2")
+        # self.layer3 = self._make_layer(512, 256, 1024, num_blocks=4, stride=2, indice_key="subm3")
+        # self.layer4 = self._make_layer(1024, 512, 2048, num_blocks=3, stride=2, indice_key="subm4")
+
+        # Fully connected layer for classification
+        self.classifier = spconv.SparseSequential(
+            spconv.SubMConv2d(128, num_classes, kernel_size=1, indice_key="subm5")
+        )
+
+    def _make_layer(self, in_channels, mid_channels, out_channels, num_blocks, stride, indice_key):
+        layers = []
+        layers.append(SparseBottleneck(in_channels, mid_channels, out_channels, stride, indice_key))
+        for _ in range(1, num_blocks):
+            layers.append(SparseBottleneck(out_channels, mid_channels, out_channels, stride=1, indice_key=indice_key))
+        # return spconv.SparseSequential(*layers)
+        return nn.Sequential(*layers)
+
+    def forward(self, features, coors, batch_size):
+        coors = coors.int()  # spconv requires integer coordinates
+        x = spconv.SparseConvTensor(features, coors, self.shape, batch_size)
+        x = self.conv1(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        # x = self.layer3(x)
+        # x = self.layer4(x)
+        x = self.classifier(x)
+
+        return x
 
 class SpNet(RefineBaseDecodeHead):
     def __init__(self, shape,**kwargs):

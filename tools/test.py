@@ -46,7 +46,7 @@ def parse_args():
     # parser.add_argument('--show',default=False, action='store_true', help='show results')
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
-        '--show-dir',default='D:\deep_learning\Star_Diff-master\show_dir', help='directory where painted images will be saved')
+        '--show-dir',default='/root/autodl-tmp/isdnet_harr/show_dir', help='directory where painted images will be saved')
     # parser.add_argument(
     #     '--show-dir', help='directory where painted images will be saved')
     parser.add_argument(

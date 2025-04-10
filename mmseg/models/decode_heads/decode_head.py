@@ -76,7 +76,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         self.loss_decode = build_loss(loss_decode)
         self.ignore_index = ignore_index
         self.align_corners = align_corners
-        self.dysampler=DySample(in_channels=num_classes,groups=num_classes,scale=8)
+        # self.dysampler=DySample(in_channels=num_classes,groups=num_classes,scale=8)
         if sampler is not None:
             self.sampler = build_pixel_sampler(sampler, context=self)
         else:

@@ -63,6 +63,50 @@ class SpatialGate(nn.Module):
 
 
 
+class DiffFusion(nn.Module):
+    def __init__(self,in_channels,channels,sp_channel,cp_channel ):
+        super(FeatureFusionModule, self).__init__()
+        in_chan=in_channels
+        out_chan=channels
+        self.convblk = ConvBNReLU(cp_channel*2, cp_channel, ks=1, stride=1, padding=0)
+        ## use conv-bn instead of 2 layer mlp, so that tensorrt 7.2.3.4 can work for fp16
+        self.conv = nn.Conv2d(out_chan,
+                out_chan,
+                kernel_size = 1,
+                stride = 1,
+                padding = 0,
+                bias = False)
+        self.bn = nn.BatchNorm2d(out_chan)
+        self.convblk2 = ConvBN(2, 1, ks=1, stride=1, padding=0)
+        self.convblk3 = ConvBN(1, cp_channel, ks=1, stride=1, padding=0)
+        self.conv_downsample = ConvBN(cp_channel,sp_channel,ks=1,stride=1,padding=0)
+        self.cls_seg=ConvBN(128,512,ks=1,stride=1,padding=0)
+        # self.conv_mul_fsp_score = ConvBN(1,1,ks=1,stride=1,padding=0)
+        # TODO
+        self.sg=SpatialGate()
+        self.channelpool=ChannelPool()
+
+    def forward(self,fsp,fcp,mask=None,test_fcp_fuse=False):
+        fcp=self.conv_downsample(fcp)
+        fcp = resize(input=fsp,size=fsp.shape[2:],mode='bilinear',align_corners=None)
+        fcp_fuse=fcp_mask+fsp_mask
+        if test_fcp_fuse==True:
+            return fcp_fuse
+
+        fcat = torch.cat([fsp, fcp_fuse], dim=1)
+        feat = self.convblk(fcat)
+        atten = torch.mean(feat, dim=(2, 3), keepdim=True)
+        atten = self.conv(atten)
+        atten = self.bn(atten)
+        atten = atten.sigmoid()
+        feat_atten = torch.mul(feat, atten)
+        feat_channel = feat_atten + feat
+        sg_score=self.sg(feat_channel)
+        feat_out=feat_channel*sg_score
+        # feat_out=self.cls_seg(feat_out)
+        return fsp,fcp_fuse,feat_out
+
+
 class FeatureFusionModule(nn.Module):
     def __init__(self,in_channels,channels,sp_channel,cp_channel ):
         super(FeatureFusionModule, self).__init__()
@@ -126,3 +170,26 @@ class FeatureFusionModule(nn.Module):
         # feat_out=self.cls_seg(feat_out)
         return fsp,fcp_fuse,feat_out
 
+class FFM(nn.Module):
+    def __init__(self, in_chan, out_chan, *args, **kwargs):
+        super(FFM, self).__init__()
+        self.convblk = ConvBNReLU(in_chan*2, out_chan, ks=1, stride=1, padding=0)
+        self.conv = nn.Conv2d(out_chan,
+                out_chan,
+                kernel_size = 1,
+                stride = 1,
+                padding = 0,
+                bias = False)
+        self.bn = nn.BatchNorm2d(out_chan)
+
+
+    def forward(self, fsp, fcp):
+        fcat = torch.cat([fsp, fcp], dim=1)
+        feat = self.convblk(fcat)
+        atten = torch.mean(feat, dim=(2, 3), keepdim=True)
+        atten = self.conv(atten)
+        atten = self.bn(atten)
+        atten = atten.sigmoid()
+        feat_atten = torch.mul(feat, atten)
+        feat_out = feat_atten + feat
+        return feat_out

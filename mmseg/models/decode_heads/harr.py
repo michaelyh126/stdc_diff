@@ -13,8 +13,9 @@ def dwt_init(x):
     x_HL = -x1 - x2 + x3 + x4
     x_LH = -x1 + x2 - x3 + x4
     x_HH = x1 - x2 - x3 + x4
+    return x_LL,x_HL,x_LH,x_HH
 
-    return torch.cat((x_LL, x_HL, x_LH, x_HH), 1)
+    # return torch.cat((x_LL, x_HL, x_LH, x_HH), 1)
 
 def separate(x):
     in_batch, in_channel, in_height, in_width = x.size()
@@ -132,7 +133,7 @@ if __name__ == '__main__':
     input_tensor = torch.rand(1, 64, 32, 32).cuda()
     down=DWT().cuda()
     up=IWT().cuda()
-    # down=HarrDown().cuda()
-    out=up(input_tensor)
+    down=HarrDown().cuda()
+    out=down(input_tensor)
     print('end')
 

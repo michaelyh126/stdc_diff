@@ -6,7 +6,7 @@ Image.MAX_IMAGE_PIXELS = None
 if __name__ == '__main__':
 
     # 读取 TIFF 图片
-    image_path = "D:\dataset\land-train\land-train\\rgb2id\\train\\2774_mask.png"
+    image_path = "/root/autodl-tmp/cityscapes/gtFine/train/aachen_000014_000019_gtFine_instanceIds.png"
     image = Image.open(image_path)
 
     # 将图片转换为灰度图
@@ -27,6 +27,7 @@ if __name__ == '__main__':
     num_fives=histogram[5]
     num_sixs=histogram[6]
     num_sevens=histogram[7]
+    num_11 = histogram[11]
     num_255=histogram[255]
 
     # 计算总像素数
