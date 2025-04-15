@@ -5,9 +5,40 @@ import os
 from other_utils.map_label import reverse_map_labels
 
 
-def save_heatmap(feature_map_np, save_dir='D:\deep_learning\ISDNet-main\heatmap', filename="heatmap.png", channel=0,ignore_value=255):
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+
+def visualize_feature_map(feature, save_path=None,channel=0):
+    # 选择某一层的一个通道
+    fmap = feature[channel]  # 取第一个batch
+    # fmap = np.mean(fmap, axis=0)  # 可选：多个通道取平均
+
+    # 归一化到0~255
+    fmap -= fmap.min()
+    fmap /= fmap.max()
+    fmap = (fmap * 255).astype(np.uint8)
+
+    # 使用 OpenCV 或 matplotlib 上色
+    fmap_color = cv2.applyColorMap(fmap, cv2.COLORMAP_JET)
+
+    if save_path:
+        cv2.imwrite(save_path, fmap_color)
+    else:
+        plt.imshow(fmap_color)
+        plt.axis('off')
+        plt.show()
+
+
+
+def save_heatmap(feature_map_np, save_dir='D:\deep_learning\ISDNet-main\heatmap', filename="heatmap.png", channel=2,ignore_value=255):
     # 选择一个通道进行可视化
     heatmap = feature_map_np[channel]
+    heatmap_min = np.nanmin(heatmap)
+    heatmap_max = np.nanmax(heatmap)
+    heatmap = (heatmap - heatmap_min) / (heatmap_max - heatmap_min + 1e-8)  # 防止除0
+    heatmap = (heatmap * 255).astype(np.uint8)
 
     # 创建保存文件夹（如果不存在）
     if not os.path.exists(save_dir):
@@ -16,7 +47,7 @@ def save_heatmap(feature_map_np, save_dir='D:\deep_learning\ISDNet-main\heatmap'
     # 生成热力图
     plt.imshow(heatmap, cmap='hot', interpolation='nearest')
     plt.colorbar()
-
+    plt.axis('off')
     # 生成保存路径
     save_path = os.path.join(save_dir, filename)
 

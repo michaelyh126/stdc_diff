@@ -11,6 +11,7 @@ from .encoder_decoder_pid import EncoderDecoderPid
 from mmcv.runner import auto_fp16
 from mmseg.models.decode_heads.harr import HarrDown
 import torch.nn.functional as F
+from other_utils.heatmap import visualize_feature_map
 
 @SEGMENTORS.register_module()
 class SingleDiff(EncoderDecoderPid):
@@ -81,6 +82,8 @@ class SingleDiff(EncoderDecoderPid):
             size=img.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
+        # save_path='/root/autodl-tmp/isdnet_harr/diff_dir/aff/'+ img_metas[0]['ori_filename']
+        # visualize_feature_map(out[0].detach().cpu().numpy(),save_path=save_path,channel=2)
 
         # torch.cuda.synchronize()
         # end_time2 = time.perf_counter()

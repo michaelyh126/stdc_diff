@@ -73,14 +73,17 @@ class ConvNextBlock(nn.Module):
 class BasicBlock(nn.Module):
     expansion = 1
 
+
     def __init__(self, inplanes, planes, stride=1, downsample=None, no_relu=False):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=False)
+        kernel_size = 3
+        padding=kernel_size//2
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=kernel_size, stride=stride,
+                               padding=padding, bias=False)
         self.bn1 = BatchNorm2d(planes, momentum=bn_mom)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=kernel_size,
+                               padding=padding, bias=False)
         self.bn2 = BatchNorm2d(planes, momentum=bn_mom)
         self.downsample = downsample
         self.stride = stride
@@ -111,10 +114,12 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, no_relu=True):
         super(Bottleneck, self).__init__()
+        kernel_size = 3
+        padding=kernel_size//2
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = BatchNorm2d(planes, momentum=bn_mom)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=kernel_size, stride=stride,
+                               padding=padding, bias=False)
         self.bn2 = BatchNorm2d(planes, momentum=bn_mom)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1,
                                bias=False)

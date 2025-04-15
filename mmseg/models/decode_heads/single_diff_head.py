@@ -9,7 +9,7 @@ from ..builder import HEADS
 from .cascade_decode_head import BaseCascadeDecodeHead
 from .diff_fusion import FeatureFusionModule
 from .harr import HarrUp
-from other_utils.heatmap import save_image,save_heatmap
+from other_utils.heatmap import save_image,save_heatmap,visualize_feature_map
 from mmseg.ops import resize
 from mmseg.models.losses.detail_loss import DetailAggregateLoss
 from .pid import Bag,AdaptiveFrequencyFusion,AddFuse
@@ -182,8 +182,7 @@ class SingleDiffHead(BaseCascadeDecodeHead):
         self.ohem=OhemCrossEntropy()
         self.lap_prymaid_conv = Lap_Pyramid_Conv(num_high=2)
         self.reduce = Reducer() if reduce else None
-        self.conv_seg_aux_16 = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels,
-                                                self.channels // 2, self.num_classes, kernel_size=1)
+
         self.convert_shallow16=nn.Conv2d(512,self.channels,stride=1,kernel_size=3,padding=1)
         self.fuse8 = RelationAwareFusion(self.channels, self.conv_cfg, self.norm_cfg, self.act_cfg, ext=2)
         self.shallow_diff=DiffHead(in_channels=1,in_index=3,channels=64,dropout_ratio=0.1,num_classes=self.num_classes,align_corners=False,loss_decode=dict(
@@ -192,6 +191,12 @@ class SingleDiffHead(BaseCascadeDecodeHead):
         self.addConv=AddFuse(self.channels,self.channels)
         self.aff=AdaptiveFrequencyFusion(sp_channels=256,co_channels=512,out_channels=128,mid_channels=128,kernel_size=3)
         # self.sampler=DySample(in_channels=self.num_classes,scale=4,groups=1)
+        self.conv_seg_context = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels,
+                                                self.channels // 2, self.num_classes, kernel_size=1)
+        self.conv_seg_aux_8 = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels*2,
+                                               self.channels // 2, self.num_classes, kernel_size=1)
+        self.conv_seg_aux_16 = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels*4,
+                                                self.channels // 2, self.num_classes, kernel_size=1)
 
 
     def forward(self, inputs, prev_output,  train_flag=True, mask=None,gt=None,img_metas=None,train_cfg=None,diff_pred_deep=None):
@@ -241,7 +246,7 @@ class SingleDiffHead(BaseCascadeDecodeHead):
                 predict = self.pid.forward_dual(fusion, output)
                 return output, predict, feats
             else:
-                predict = self.pid.forward_dual(fusion, output)
+                # predict = self.pid.forward_dual(fusion, output)
                 # tensor_histogram(predict)
                 return predict
         elif decoder_flag=='aff':
@@ -257,6 +262,28 @@ class SingleDiffHead(BaseCascadeDecodeHead):
                 return output,predict,feats ,loss_shallow_diff,diff_pred_shallow
             else:
                 predict = self.pid.forward_dual(fusion, output)
+                # visualize_feature_map(predict[0].detach().cpu().numpy(),save_path='/root/autodl-tmp/isdnet_harr/diff_dir/heatmap.png',channel=2)
+                # save_heatmap(predict[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="heatmap.png")
+                # tensor_histogram(predict)
+                return predict
+        elif decoder_flag=='7loss':
+            if train_flag:
+                predict,c_feature = self.pid.forward_dual(fusion, output)
+                output8=self.conv_seg_aux_8(shallow_feat8)
+                output16=self.conv_seg_aux_16(shallow_feat16)
+                outputc=self.conv_seg_context(c_feature)
+                loss_shallow_diff, diff_map, diff_pred_shallow,_ = self.shallow_diff.forward_train_diff(predict, img_metas,
+                                                                                                      gt, train_cfg)
+                diff_pred_shallow = resize(diff_pred_shallow, size=inputs.size()[2:], mode='bilinear',
+                                           align_corners=self.align_corners)
+                diff_pred_shallow = torch.sigmoid(diff_pred_shallow)
+                diff_pred_shallow_sig = diff_pred_shallow
+                diff_pred_shallow = (diff_pred_shallow > 0.5).float()
+                return output,predict,feats ,loss_shallow_diff,diff_pred_shallow,output8,output16,outputc
+            else:
+                predict,_ = self.pid.forward_dual(fusion, output)
+                # visualize_feature_map(predict[0].detach().cpu().numpy(),save_path='/root/autodl-tmp/isdnet_harr/diff_dir/heatmap.png',channel=2)
+                # save_heatmap(predict[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="heatmap.png")
                 # tensor_histogram(predict)
                 return predict
         elif decoder_flag=='aff+un':
@@ -391,6 +418,23 @@ class SingleDiffHead(BaseCascadeDecodeHead):
             gt_un[diff_pred_shallow == 0] = 255
             losses_un=self.losses(predict,gt_un)
             return feats,losses,losses_stdc,loss_shallow_diff,losses_un
+        elif self.decoder_flag=='7loss':
+            output,predict,feats ,loss_shallow_diff,diff_pred_shallow,output8,output16,outputc  = self.forward(
+                inputs, prev_output,
+                mask=mask,
+                gt=gt_semantic_seg,
+                img_metas=img_metas,
+                train_cfg=train_cfg,
+                diff_pred_deep=mask)
+            losses=self.losses(predict,gt_semantic_seg)
+            losses_stdc=self.losses(output,gt_semantic_seg)
+            losses_8=self.losses(output8,gt_semantic_seg)
+            losses_16=self.losses(output16,gt_semantic_seg)
+            losses_c=self.losses(outputc,gt_semantic_seg)
+            gt_un=gt_semantic_seg.clone()
+            gt_un[diff_pred_shallow == 0] = 255
+            losses_un=self.losses(predict,gt_un)
+            return feats,losses,losses_stdc,loss_shallow_diff,losses_un,losses_8,losses_16,losses_c
         elif self.decoder_flag=='aff+un':
             output, predict,feats,loss_shallow_diff,diff_pred_shallow,diff_gt  = self.forward(
                 inputs, prev_output,

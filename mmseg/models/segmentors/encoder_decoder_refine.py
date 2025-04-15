@@ -8,6 +8,7 @@ from .. import builder
 from ..builder import SEGMENTORS
 from .encoder_decoder import EncoderDecoder
 from mmcv.runner import auto_fp16
+from other_utils.heatmap import visualize_feature_map
 
 
 @SEGMENTORS.register_module()
@@ -100,6 +101,9 @@ class EncoderDecoderRefine(EncoderDecoder):
             size=img.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
+        save_path='/root/autodl-tmp/isdnet_harr/diff_dir/isd/'+ img_metas[0]['ori_filename']
+        visualize_feature_map(out[0].detach().cpu().numpy(),save_path=save_path,channel=2)
+        # visualize_feature_map(out[0].detach().cpu().numpy(),save_path='/root/autodl-tmp/isdnet_harr/diff_dir/heatmap_isd.png',channel=2)
         # torch.cuda.synchronize()
         # end_time2 = time.perf_counter()
         # print(end_time2 - start_time2)
