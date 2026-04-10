@@ -378,6 +378,9 @@ class CustomDataset(Dataset):
             class_names = tuple(range(num_classes))
         else:
             class_names = self.CLASSES
+        if ret_metrics['IoU'].size==7:
+            ret_metrics['IoU'][0]=None
+            ret_metrics['Acc'][0]=None
 
         # summary table
         ret_metrics_summary = OrderedDict({
@@ -429,3 +432,5 @@ class CustomDataset(Dataset):
             for file_name in results:
                 os.remove(file_name)
         return eval_results
+
+

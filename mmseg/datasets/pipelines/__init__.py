@@ -5,12 +5,13 @@ from .loading import LoadAnnotations, LoadImageFromFile, LoadAnnotationsRGB2Id
 from .test_time_aug import MultiScaleFlipAug
 from .transforms import (CLAHE, AdjustGamma, Normalize, Pad,
                          PhotoMetricDistortion, RandomCrop, RandomFlip,
-                         RandomRotate, Rerange, Resize, RGB2Gray, SegRescale)
+                         RandomRotate, Rerange, Resize, RGB2Gray, SegRescale,CutMix,Cutout)
 
 __all__ = [
     'Compose', 'to_tensor', 'ToTensor', 'ImageToTensor', 'ToDataContainer',
     'Transpose', 'Collect', 'LoadAnnotations', 'LoadImageFromFile',
     'MultiScaleFlipAug', 'Resize', 'RandomFlip', 'Pad', 'RandomCrop',
     'Normalize', 'SegRescale', 'PhotoMetricDistortion', 'RandomRotate',
-    'AdjustGamma', 'CLAHE', 'Rerange', 'RGB2Gray', 'LoadAnnotationsRGB2Id'
+    'AdjustGamma', 'CLAHE', 'Rerange', 'RGB2Gray', 'LoadAnnotationsRGB2Id',
+    'CutMix','Cutout'
 ]

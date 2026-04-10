@@ -44,7 +44,7 @@ def parse_args():
         help='evaluation metrics, which depends on the dataset, e.g., "mIoU"'
         ' for generic datasets, and "cityscapes" for Cityscapes')
     # parser.add_argument('--show',default=False, action='store_true', help='show results')
-    parser.add_argument('--show', action='store_true', help='show results')
+    parser.add_argument('--show', action='store_false', help='show results')
     parser.add_argument(
         '--show-dir',default='/root/autodl-tmp/isdnet_harr/show_dir', help='directory where painted images will be saved')
     # parser.add_argument(

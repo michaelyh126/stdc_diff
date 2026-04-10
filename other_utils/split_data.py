@@ -107,8 +107,8 @@ import shutil
 
 if __name__ == '__main__':
     # 定义图像和标签文件夹路径
-    img_folder = "/root/autodl-tmp/deepglobe1/land-train/img_dir"
-    label_folder = "/root/autodl-tmp/deepglobe1/land-train/rgb2id"
+    img_folder = "D:\gaza\gaza_dataset\\train/img"
+    label_folder = "D:\gaza\gaza_dataset\\train/label"
 
     # 目标子文件夹
     subsets = ['train', 'val', 'test']
@@ -133,8 +133,8 @@ if __name__ == '__main__':
 
     # 计算划分索引
     total = len(paired_files)
-    train_end = 455 # 70% 训练集
-    val_end = 662    # 20% 验证集，剩下 10% 测试集
+    train_end = 40 # 70% 训练集
+    val_end = 50    # 20% 验证集，剩下 10% 测试集
 
     # 进行数据集划分
     for index, (img_name, label_name) in enumerate(paired_files):

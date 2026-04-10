@@ -947,3 +947,66 @@ class PhotoMetricDistortion(object):
                      f'{self.saturation_upper}), '
                      f'hue_delta={self.hue_delta})')
         return repr_str
+
+@PIPELINES.register_module()
+class CutMix:
+    def __init__(self, prob=0.5):
+        self.prob = prob
+
+    def __call__(self, results):
+        if random.random() < self.prob:
+            results2 = {
+                'img': np.random.randint(0, 256, results['img'].shape).astype(np.uint8),
+                'gt_semantic_seg': np.random.randint(0, 2, results['gt_semantic_seg'].shape).astype(np.uint8)
+            }
+            h, w = results['img'].shape[:2]
+
+            cut_ratio = np.random.uniform(0.2, 0.8)
+            cut_w = int(w * cut_ratio)
+            cut_h = int(h * cut_ratio)
+            cx = np.random.randint(0, w)
+            cy = np.random.randint(0, h)
+
+            x1 = np.clip(cx - cut_w // 2, 0, w)
+            y1 = np.clip(cy - cut_h // 2, 0, h)
+            x2 = np.clip(cx + cut_w // 2, 0, w)
+            y2 = np.clip(cy + cut_h // 2, 0, h)
+
+            # 进行 CutMix
+            results['img'][y1:y2, x1:x2] = results2['img'][y1:y2, x1:x2]
+            results['gt_semantic_seg'][y1:y2, x1:x2] = results2['gt_semantic_seg'][y1:y2, x1:x2]
+
+        return results
+
+
+@PIPELINES.register_module()
+class Cutout:
+    def __init__(self, prob=0.5, num_holes=1, max_h_size=80, max_w_size=80):
+        # 执行 Cutout 的概率
+        self.prob = prob
+        # 要遮挡的矩形区域数量
+        self.num_holes = num_holes
+        # 矩形区域的最大高度
+        self.max_h_size = max_h_size
+        # 矩形区域的最大宽度
+        self.max_w_size = max_w_size
+
+    def __call__(self, results):
+        # 根据概率判断是否执行 Cutout
+        if random.random() < self.prob:
+            img = results['img']
+            h, w, _ = img.shape
+            # 循环处理每个要遮挡的矩形区域
+            for _ in range(self.num_holes):
+                # 随机确定矩形区域的高度
+                h_size = np.random.randint(1, self.max_h_size)
+                # 随机确定矩形区域的宽度
+                w_size = np.random.randint(1, self.max_w_size)
+                # 随机确定矩形区域左上角的纵坐标
+                y = np.random.randint(0, h - h_size)
+                # 随机确定矩形区域左上角的横坐标
+                x = np.random.randint(0, w - w_size)
+                # 将矩形区域的像素值设为 0
+                img[y:y + h_size, x:x + w_size, :] = 255
+            results['img'] = img
+        return results

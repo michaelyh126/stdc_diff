@@ -1,18 +1,20 @@
 import torch
 import time
 from torch import nn
-# from ..decode_heads.lpls_utils import Lap_Pyramid_Conv
+#from ..decode_heads.lpls_utils import Lap_Pyramid_Conv
 from mmseg.core import add_prefix
 from mmseg.ops import resize
 from .. import builder
 from ..builder import SEGMENTORS
 from .encoder_decoder import EncoderDecoder
+from .encoder_decoder_refine import EncoderDecoderRefine
 from mmcv.runner import auto_fp16
+from mmseg.models.decode_heads.harr import HarrDown
+import torch.nn.functional as F
 from other_utils.heatmap import visualize_feature_map
 
-
 @SEGMENTORS.register_module()
-class EncoderDecoderRefine(EncoderDecoder):
+class StdcTest(EncoderDecoderRefine):
     """Cascade Encoder Decoder segmentors.
 
     CascadeEncoderDecoder almost the same as EncoderDecoder, while decoders of
@@ -22,9 +24,9 @@ class EncoderDecoderRefine(EncoderDecoder):
 
     def __init__(self,
                  num_stages,
-                 down_ratio,
-                 backbone,
-                 decode_head,
+                 down_ratio=4,
+                 backbone=None,
+                 decode_head=None,
                  refine_input_ratio=1.,
                  neck=None,
                  auxiliary_head=None,
@@ -37,7 +39,10 @@ class EncoderDecoderRefine(EncoderDecoder):
         self.is_frequency = is_frequency
         self.down_scale = down_ratio
         self.refine_input_ratio = refine_input_ratio
-        super(EncoderDecoderRefine, self).__init__(
+
+        super(StdcTest, self).__init__(
+            num_stages=num_stages,
+            down_ratio=down_ratio,
             backbone=backbone,
             decode_head=decode_head,
             neck=neck,
@@ -52,14 +57,16 @@ class EncoderDecoderRefine(EncoderDecoder):
         assert isinstance(decode_head, list)
         assert len(decode_head) == self.num_stages
         # self.decode_head = nn.ModuleList()
-        # self.lap_prymaid_conv = Lap_Pyramid_Conv(num_high=1)
+        #self.lap_prymaid_conv = Lap_Pyramid_Conv(num_high=1)
         self.decode_head = builder.build_head(decode_head[0])
         self.refine_head = builder.build_head(decode_head[1])
-
-        # print(self.decode_head)
+        # self.distill_head = builder.build_head(decode_head[1])
+        # self.diff_head = builder.build_head(decode_head[2])
+        # self.harr_down = HarrDown()
+        # print(self.decode_head)d
         # print(self.refine_head)
-        self.align_corners = self.decode_head.align_corners
-        self.num_classes = self.decode_head.num_classes
+        self.align_corners = self.refine_head.align_corners
+        self.num_classes = self.refine_head.num_classes
 
     def encode_decode(self, img, img_metas):
         """Encode images with backbone and decode into a semantic segmentation
@@ -69,24 +76,13 @@ class EncoderDecoderRefine(EncoderDecoder):
         # 目前的计划：
         # 大分辨率图像：参数传入的image， 输入refine_head中
         # 小分辨率图像：参数传入的image下采样到原来的0.25倍数，输入feature_extractor, 即原有的分支中
-        if self.is_frequency:
-            deeplab_inputs = self.lap_prymaid_conv.pyramid_decom(img)[0]
-            img_os2 = nn.functional.interpolate(deeplab_inputs, size=[img.shape[-2] // self.down_scale,
-                                                                      img.shape[-1] // self.down_scale])
-        else:
-            img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
-                                                           img.shape[-1] // self.down_scale])
-
-        if self.refine_input_ratio == 1.:
-            img_refine = img
-        elif self.refine_input_ratio < 1.:
-            img_refine = nn.functional.interpolate(img, size=[int(img.shape[-2] * self.refine_input_ratio),
-                                                              int(img.shape[-1] * self.refine_input_ratio)])
-
+        prev_outputs = None
+        img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
+                                                       img.shape[-1] // self.down_scale])
         x = self.extract_feat(img_os2)
         out, prev_outputs = self.decode_head.forward_test(x, img_metas, self.test_cfg)
 
-        out = self.refine_head.forward_test(img_refine, prev_outputs, img_metas, self.test_cfg)
+        out = self.refine_head.forward_test(img, prev_outputs, img_metas, self.test_cfg)
 
         out = resize(
             input=out,
@@ -113,26 +109,18 @@ class EncoderDecoderRefine(EncoderDecoder):
             dict[str, Tensor]: a dictionary of loss components
         """
         # img_os2:将deeplabv3输入的图像size下采样为原来的一半
-        if self.is_frequency:
-            deeplab_inputs = self.lap_prymaid_conv.pyramid_decom(img)[0]
-            img_os2 = nn.functional.interpolate(deeplab_inputs, size=[img.shape[-2] // self.down_scale,
-                                                                      img.shape[-1] // self.down_scale])
-        else:
-            img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
-                                                           img.shape[-1] // self.down_scale])
+        x=None
+        img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
+                                                       img.shape[-1] // self.down_scale])
         x = self.extract_feat(img_os2)
-        if self.refine_input_ratio == 1.:
-            img_refine = img
-        elif self.refine_input_ratio < 1.:
-            img_refine = nn.functional.interpolate(img, size=[int(img.shape[-2] * self.refine_input_ratio),
-                                                              int(img.shape[-1] * self.refine_input_ratio)])
+        out, prev_outputs = self.decode_head.forward_test(x, img_metas, self.test_cfg)
+
+        img_refine=img
         losses = dict()
-        loss_decode = self._decode_head_forward_train(x, img_refine, img_metas, gt_semantic_seg)
+        loss_decode = self._decode_head_forward_train(prev_outputs, img_refine, img_metas, gt_semantic_seg)
         losses.update(loss_decode)
-        if self.with_auxiliary_head:
-            loss_aux = self._auxiliary_head_forward_train(
-                x, img_metas, gt_semantic_seg)
-            losses.update(loss_aux)
+
+
 
         return losses
 
@@ -141,17 +129,11 @@ class EncoderDecoderRefine(EncoderDecoder):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
-        loss_decode, prev_features = self.decode_head.forward_train(
-            x, img_metas, gt_semantic_seg, self.train_cfg)
-        losses.update(add_prefix(loss_decode, 'decode'))
-        # loss_contrsative_list = self.refine_head.forward_train(
-        #          img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
-        # losses.update(add_prefix(loss_contrsative_list, 'second_'))loss_refine_aux16, loss_refine_aux8,
-        loss_refine, *loss_contrsative_list = self.refine_head.forward_train(img, prev_features, img_metas,
-                                                                             gt_semantic_seg, self.train_cfg)
+        prev_features=x
+        # loss_refine, *loss_contrsative_list = self.refine_head.forward_train(img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
+        loss_refine,*loss_contrsative_list = self.refine_head.forward_train(img, prev_features, img_metas, gt_semantic_seg, self.train_cfg)
         losses.update(add_prefix(loss_refine, 'refine'))
-        # losses.update(add_prefix(loss_refine_aux16, 'refine_aux16'))
-        # losses.update(add_prefix(loss_refine_aux8, 'refine_aux8'))
+
         j = 1
         for loss_aux in loss_contrsative_list:
             losses.update(add_prefix(loss_aux, 'aux_' + str(j)))

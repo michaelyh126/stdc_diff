@@ -1,17 +1,15 @@
 # dataset settings
-dataset_type = 'DeepGlobeDataset'
-data_root = '/root/autodl-tmp/land-train'
-# img_norm_cfg = dict(
-#     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+dataset_type = 'InriaAerialDataset'
+data_root = '/root/autodl-tmp/gaza'
 img_norm_cfg = dict(
-    mean=[0, 0, 0], std=[255,255,255], to_rgb=True)
-crop_size = (1224, 1224)
+    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+crop_size = (500, 500)
+#crop_size = (980, 980)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
-    dict(type='Resize', img_scale=(2448, 2448), ratio_range=(0.5, 2.)),
+    dict(type='Resize', img_scale=(500, 500), ratio_range=(1., 1.)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
-    # dict(type='Cutout', prob=0.5,num_holes=1, max_h_size=450, max_w_size=450),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
     dict(type='PhotoMetricDistortion'),
@@ -24,7 +22,8 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(2448, 2448),
+        img_scale=(500, 500),
+        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -35,23 +34,23 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=8,
-    workers_per_gpu=16,
+    samples_per_gpu=4,
+    workers_per_gpu=22,
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='img_dir/train',
-        ann_dir='rgb2id/train',
+        img_dir='p500',
+        ann_dir='p500_mask',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='img_dir/test',
-        ann_dir='rgb2id/test',
+        img_dir='test',
+        ann_dir='test_mask',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='img_dir/test',
-        ann_dir='rgb2id/test',
+        img_dir='test',
+        ann_dir='test_mask',
         pipeline=test_pipeline))

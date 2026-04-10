@@ -14,10 +14,10 @@ class DeepGlobeDataset(CustomDataset):
     '_manual1.png'.
     """
 
-    
+
     CLASSES = ('unknown', 'urban', 'agriculture', 'rangeland', 'forest', 'water', 'barren')
 
-    PALETTE = [[0, 0, 0], [0, 255, 255], [255, 255, 0], [255, 0, 255], [0, 255, 0], 
+    PALETTE = [[0, 0, 0], [0, 255, 255], [255, 255, 0], [255, 0, 255], [0, 255, 0],
                [0, 0, 255], [255, 255, 255]]
 
     def __init__(self, **kwargs):

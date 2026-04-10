@@ -13,7 +13,10 @@ from .dual_diff import DualDiff
 from .pid_un import PidUn
 from .dual_distill import DualDistill
 from .single_diff import SingleDiff
+from .stdc_test import StdcTest
+from .rue import RUE
+from .stdc import Stdc
 
 __all__ = ['BaseSegmentor', 'EncoderDecoder', 'CascadeEncoderDecoder',
            'EncoderDecoderRefine','IsdDiff','IsdHarrDiff','IsdDiffFast','IsdD','STDCDiff','STDCIn','IsdPid','DualDiff'
-           ,'PidUn','DualDistill','SingleDiff']
+           ,'PidUn','DualDistill','SingleDiff','StdcTest','RUE','Stdc']

@@ -37,6 +37,9 @@ from .pid_un_head import PidUnHead
 from .dual_distill_head import DualDistillHead
 from .vit_guidance_head import VitGuidanceHead
 from .single_diff_head import SingleDiffHead
+from .stdc_test_head import StdcTestHead
+from .rue_head import RUEHead
+from .stdc import MyStdcHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -45,5 +48,6 @@ __all__ = [
     'PointHead', 'APCHead', 'DMHead', 'LRASPPHead', 'SETRUPHead',
     'SETRMLAHead', 'SegformerHead', 'RefineASPPHead', 'RefineBaseDecodeHead',
     'ISDHead','DiffHead','ISDDiffHead','SddHead','ISDDiffFastHead','STDCDiffHead',
-    'STDCInHead','ISDPidHead','DualDiffHead','PidUnHead','DualDistillHead','VitGuidanceHead','SingleDiffHead'
+    'STDCInHead','ISDPidHead','DualDiffHead','PidUnHead','DualDistillHead','VitGuidanceHead','SingleDiffHead',
+    'StdcTestHead','RUEHead','MyStdcHead'
 ]

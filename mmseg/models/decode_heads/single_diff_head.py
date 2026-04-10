@@ -18,7 +18,7 @@ from .diff_point import DiffPoint
 from .spnet import SpNet,get_coordsandfeatures,SparseResNet50
 from .spnetv2 import SpNetV2
 from other_utils.split_tensor import split_tensor,restore_tensor
-from .pid import segmenthead
+from .pid import segmenthead,CBAMLayer
 from .sdd_stdc_head import ShallowNet
 from .pidnet_single import PIDNet
 # from .pidnet import PIDNet
@@ -30,6 +30,8 @@ from mmseg.models.losses.detail_loss import DetailAggregateLoss
 from .isdhead import RelationAwareFusion
 from mmseg.models.sampler.dysample import DySample
 from other_utils.histogram import tensor_histogram
+from mmseg.models.decode_heads.isdhead import SRDecoder
+from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 
 
 
@@ -168,6 +170,8 @@ class Lap_Pyramid_Conv(nn.Module):
 
 @HEADS.register_module()
 class SingleDiffHead(BaseCascadeDecodeHead):
+    psnr_sum = 0
+    ssim_sum = 0
     def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='aff', **kwargs):
         super(SingleDiffHead, self).__init__(**kwargs)
         self.decoder_flag=decoder_flag
@@ -176,7 +180,7 @@ class SingleDiffHead(BaseCascadeDecodeHead):
                 type='BCEDiceLoss'))
         self.down_ratio = down_ratio
         self.convert_shallow8=nn.Conv2d(256,self.channels,stride=1,kernel_size=1)
-        self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/pretrained models/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
         self.pid=PIDNet(m=2, n=3, num_classes=self.num_classes, planes=32, ppm_planes=96, head_planes=128, augment=True)
         h,w=img_size
         self.ohem=OhemCrossEntropy()
@@ -197,11 +201,37 @@ class SingleDiffHead(BaseCascadeDecodeHead):
                                                self.channels // 2, self.num_classes, kernel_size=1)
         self.conv_seg_aux_16 = SegmentationHead(self.conv_cfg, self.norm_cfg, self.act_cfg, self.channels*4,
                                                 self.channels // 2, self.num_classes, kernel_size=1)
+        self.sr_decoder = SRDecoder(self.conv_cfg, self.norm_cfg, self.act_cfg,
+                                    channels=self.channels, up_lists=[2, 2, 1])
+        self.cbam=CBAMLayer(channel=self.channels)
+
+
+
+
+    def image_recon_loss(self, img, pred, re_weight=0.5):
+        loss = dict()
+        if pred.size()[2:] != img.size()[2:]:
+            pred = F.interpolate(pred, img.size()[2:], mode='bilinear', align_corners=False)
+        recon_loss = F.mse_loss(pred, img) * re_weight
+        loss['recon_losses'] = recon_loss
+        return loss
+
+    def standardize_and_scale(image):
+        """标准化（减去均值，除以标准差）后缩放到 [0, 1]"""
+        mean = image.mean()
+        std = image.std()
+        standardized = (image - mean) / (std + 1e-8)  # 避免除零
+        # 将标准化后的图像缩放到 [0, 1]
+        min_val = standardized.min()
+        max_val = standardized.max()
+        scaled = (standardized - min_val) / (max_val - min_val)
+        return scaled
 
 
     def forward(self, inputs, prev_output,  train_flag=True, mask=None,gt=None,img_metas=None,train_cfg=None,diff_pred_deep=None):
         """Forward function."""
         decoder_flag=self.decoder_flag
+        # inputs=self.standardize_and_scale(inputs)
 
         shallow_feat8, shallow_feat16 = self.stdc_net(inputs)
 
@@ -213,12 +243,19 @@ class SingleDiffHead(BaseCascadeDecodeHead):
         # shallow_feat16 = F.interpolate(shallow_feat16, size=(h , w ), mode='bilinear', align_corners=False)
         # fusion=self.addConv(shallow_feat8,shallow_feat16)
 
+
+        # cbam
+        # fusion = self.cbam(fusion)
+
         # raf fusion
         # shallow_feat16 = self.convert_shallow16(shallow_feat16)
         # _, aux_feat8, fusion = self.fuse8(shallow_feat8, shallow_feat16)
 
+
+
         # freq fusion
         fusion=self.aff(shallow_feat8,shallow_feat16)
+
 
         output = self.cls_seg(fusion)
 
@@ -266,6 +303,24 @@ class SingleDiffHead(BaseCascadeDecodeHead):
                 # save_heatmap(predict[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="heatmap.png")
                 # tensor_histogram(predict)
                 return predict
+        elif decoder_flag=='detail':
+            if train_flag:
+                sr_feats, output_sr = self.sr_decoder(fusion, True)
+                losses_re = self.image_recon_loss(inputs, output_sr, re_weight=0.1)
+                return output,feats ,losses_re
+            else:
+                sr_feats, output_sr = self.sr_decoder(fusion, True)
+                psnr = PeakSignalNoiseRatio(data_range=1.0).to(inputs.device)  # 假设图像范围为[0,1]
+                ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(inputs.device)
+                output_sr = resize(output_sr, size=inputs.size()[2:], mode='bilinear',
+                                           align_corners=self.align_corners)
+                psnr_value = psnr(inputs, output_sr)
+                ssim_value = ssim(inputs, output_sr)
+                SingleDiffHead.psnr_sum+=psnr_value
+                SingleDiffHead.ssim_sum+=ssim_value
+                print(SingleDiffHead.psnr_sum)
+                print(SingleDiffHead.ssim_sum)
+                return output_sr
         elif decoder_flag=='7loss':
             if train_flag:
                 predict,c_feature = self.pid.forward_dual(fusion, output)
@@ -418,6 +473,15 @@ class SingleDiffHead(BaseCascadeDecodeHead):
             gt_un[diff_pred_shallow == 0] = 255
             losses_un=self.losses(predict,gt_un)
             return feats,losses,losses_stdc,loss_shallow_diff,losses_un
+        elif self.decoder_flag=='detail':
+            output,feats ,losses_re  = self.forward(
+                inputs, prev_output,
+                mask=mask,
+                gt=gt_semantic_seg,
+                img_metas=img_metas,
+                train_cfg=train_cfg,
+                diff_pred_deep=mask)
+            return feats,losses_re
         elif self.decoder_flag=='7loss':
             output,predict,feats ,loss_shallow_diff,diff_pred_shallow,output8,output16,outputc  = self.forward(
                 inputs, prev_output,

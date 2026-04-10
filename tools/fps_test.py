@@ -14,8 +14,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='MMSeg benchmark a model')
     parser.add_argument('--config', help='test config file path')
     parser.add_argument('--height', type=int, default=1024, help='height')
-    parser.add_argument('--width', type=int, default=2048, help='weight')
-    parser.add_argument('--scale-ratio', type=float, default=0.8, help='weight')
+    parser.add_argument('--width', type=int, default=2048, help='width')
+    parser.add_argument('--scale-ratio', type=float, default=0.8, help='scale-ratio')
     args = parser.parse_args()
 
     return args

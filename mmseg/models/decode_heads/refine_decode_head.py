@@ -218,7 +218,7 @@ class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
             diff_gt=self.get_uncertainty_map_gt(seg_logit,gt_semantic_seg)
 
 
-            # save_heatmap(seg_logit[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="heatmap.png")
+            # # save_heatmap(seg_logit[0].detach().cpu().numpy(),save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', filename="heatmap.png")
             # save_image(diff_gt[0].squeeze().detach().cpu().numpy(), filename='diff_gt',
             #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
             # seg_logit_cls=torch.argmax(seg_logit,dim=1)
@@ -233,7 +233,7 @@ class RefineBaseDecodeHead(BaseModule, metaclass=ABCMeta):
             #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
             # # save_image(gt_semantic_seg[0].squeeze().detach().cpu().numpy(), filename='gt',
             # #            save_dir='/root/autodl-tmp/isdnet_harr/diff_dir', )
-
+            #
 
 
             diff_gt = diff_gt.unsqueeze(1)

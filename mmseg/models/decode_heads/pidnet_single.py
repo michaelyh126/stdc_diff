@@ -103,7 +103,7 @@ class PIDNet(nn.Module):
                           nn.ReLU(inplace=True),
                       )
         self.cat_fuse = ConcatFuse(planes * 8, planes * 4)
-        self.add_fuse = AddFuse(planes*4,planes*4)
+        self.add_fuse = AddFuse(head_planes,head_planes)
         self.aff = AdaptiveFrequencyFusion(sp_channels=128, co_channels=128, out_channels=128, mid_channels=128,
                                            kernel_size=3)
         self.raf=RelationAwareFusion(planes*4, None, dict(type='BN', requires_grad=True), dict(type='ReLU'), ext=1)
@@ -126,7 +126,7 @@ class PIDNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(BasicBlock, planes, planes, m)
         self.layer2 = self._make_layer(BasicBlock, planes, planes * 2, m, stride=2)
-        self.layer3 = self._make_layer(BasicBlock, planes * 4, planes * 4, n, stride=2)
+        self.layer3 = self._make_layer(BasicBlock, head_planes, planes * 4, n, stride=2)
         self.layer4 = self._make_layer(BasicBlock, planes * 4, planes * 8, n, stride=2)
         self.layer5 =  self._make_layer(Bottleneck, planes * 8, planes * 8, 2, stride=2)
 
@@ -159,7 +159,7 @@ class PIDNet(nn.Module):
                                      nn.Conv2d(planes * 8, planes * 2, kernel_size=3, padding=1, bias=False),
                                      BatchNorm2d(planes * 2, momentum=bn_mom),
                                      )
-            self.spp = PAPPM(planes * 16, ppm_planes, planes * 4)
+            self.spp = PAPPM(planes * 16, ppm_planes, head_planes)
             self.dfm = Light_Bag(planes * 4, planes * 4)
         else:
             self.layer3_d = self._make_single_layer(BasicBlock, planes * 2, planes * 2)
@@ -172,7 +172,7 @@ class PIDNet(nn.Module):
                                      nn.Conv2d(planes * 8, planes * 2, kernel_size=3, padding=1, bias=False),
                                      BatchNorm2d(planes * 2, momentum=bn_mom),
                                      )
-            self.spp = DAPPM(planes * 16, ppm_planes, planes * 4)
+            self.spp = DAPPM(planes * 16, ppm_planes, planes*4)
             self.dfm = Bag(planes * 4, planes * 4)
 
 
@@ -183,7 +183,7 @@ class PIDNet(nn.Module):
             self.seghead_p = segmenthead(planes * 2, head_planes, num_classes)
             self.seghead_d = segmenthead(planes * 2, planes, 1)
 
-        self.final_layer = segmenthead(planes * 4, head_planes, num_classes)
+        self.final_layer = segmenthead(head_planes, head_planes, num_classes)
 
 
         for m in self.modules():

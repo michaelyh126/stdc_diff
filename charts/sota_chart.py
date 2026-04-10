@@ -1,12 +1,12 @@
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    models = ["CascadePSP", "GLNet", "FCtL", "STDC", "ISDNet", "WSDNet", "MYNet"]
+    models = ["CascadePSP", "GLNet", "FCtL", "STDC", "ISDNet", "WSDNet", "SBUPNet"]
     iou = [69.4, 71.2, 73.7, 72.44, 74.23, 75.2, 76.5]  # Mean IoU (%)
     fps = [0.03, 0.05, 0.04, 4.97, 6.9, 7.8, 9.49]  # Inference Speed (FPS)
 
     # Highlight specific model
-    highlight_models = ["MYNet"]
+    highlight_models = ["SBUPNet"]
     highlight_indices = [models.index(m) for m in highlight_models]
 
     # Create plot
@@ -18,9 +18,9 @@ if __name__ == '__main__':
 
     # Annotate models with text to the right of the points
     for i, model in enumerate(models):
-        if model == "MYNet":
+        if model == "SBUPNet":
             # Place MYNet label below the point
-            plt.annotate(model, (fps[i], iou[i]), textcoords="offset points", xytext=(-27, -20), ha='left', fontsize=16)
+            plt.annotate(model, (fps[i], iou[i]), textcoords="offset points", xytext=(-10, -10), ha='right', fontsize=16)
         else:
             # Place other model labels to the right of the points
             plt.annotate(model, (fps[i], iou[i]), textcoords="offset points", xytext=(8, 0), ha='left', fontsize=16)
