@@ -280,7 +280,7 @@ class PIDNet(nn.Module):
         else:
             return x_
 
-    def forward_dual(self, x,map):
+    def forward_dual(self, x):
         x_=x
         x_ori=x
         width_output = x.shape[-1]

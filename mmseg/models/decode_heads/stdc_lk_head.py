@@ -163,3 +163,48 @@ class ShallowNet_lk(nn.Module):
             return feat4, feat8, feat16
         else:
             return feat8, feat16
+
+
+
+class ShallowNet_lk2(nn.Module):
+    def __init__(self, base=64, in_channels=3, layers=[2,2], block_num=4, type="cat", dropout=0.20, num_classes=2):
+        super(ShallowNet_lk2, self).__init__()
+        if type == "cat":
+            block = CatBottleneck
+        elif type == "add":
+            block = AddBottleneck
+
+        self.in_channels = in_channels
+        self.cls_feat16 = ConvX(512, num_classes, 3, 1)
+
+        self.features = self._make_layers(base, layers, block_num, block)
+        self.x2 = nn.Sequential(self.features[:1])
+        self.x4 = nn.Sequential(self.features[1:2])
+        self.x8 = nn.Sequential(self.features[2:4])
+        self.x16 = nn.Sequential(self.features[4:6])
+
+    def _make_layers(self, base, layers, block_num, block):
+        features = []
+        features += [ConvX(self.in_channels, base//2, stride=2)]
+        features += [ConvX(base//2, base, stride=2)]
+
+        for i, layer in enumerate(layers):
+            for j in range(layer):
+                if i == 0 and j == 0:
+                    features.append(block(base, base*4, block_num, 2))
+                elif j == 0:
+                    features.append(block(base*int(math.pow(2,i+1)), base*int(math.pow(2,i+2)), block_num, 2))
+                else:
+                    features.append(block(base*int(math.pow(2,i+2)), base*int(math.pow(2,i+2)), block_num, 1))
+
+        return nn.Sequential(*features)
+
+    def forward(self, x, cas3=False):
+        # feat2 = self.x2(x)
+        # feat4 = self.x4(feat2)
+        feat8 = self.x8(x)
+        feat16 = self.x16(feat8)
+        if cas3:
+            return feat4, feat8, feat16
+        else:
+            return feat8, feat16

@@ -13,11 +13,12 @@ from .deepglobe import DeepGlobeDataset
 from .inria_aerial import InriaAerialDataset
 from .road import RoadDataset
 from .camvid import CamVidDataSet
+from .deepglobe512 import DeepGlobeDataset512
 
 __all__ = [
     'CustomDataset', 'build_dataloader', 'ConcatDataset', 'RepeatDataset',
     'DATASETS', 'build_dataset', 'PIPELINES', 'CityscapesDataset',
     'PascalVOCDataset', 'ADE20KDataset', 'PascalContextDataset',
     'PascalContextDataset59', 'ChaseDB1Dataset', 'DRIVEDataset', 'HRFDataset',
-    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset','RoadDataset','CamVidDataSet'
+    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset','RoadDataset','CamVidDataSet','DeepGlobeDataset512'
 ]

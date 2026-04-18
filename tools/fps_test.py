@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument('--config', help='test config file path')
     parser.add_argument('--height', type=int, default=1024, help='height')
     parser.add_argument('--width', type=int, default=2048, help='width')
-    parser.add_argument('--scale-ratio', type=float, default=0.8, help='scale-ratio')
+    parser.add_argument('--scale-ratio', type=float, default=1.0, help='scale-ratio')
     args = parser.parse_args()
 
     return args

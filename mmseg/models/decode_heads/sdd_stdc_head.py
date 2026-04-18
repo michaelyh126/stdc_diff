@@ -275,3 +275,98 @@ class ShallowNet_diff(nn.Module):
             return feat8_cls
 
 
+class ShallowNet_RF63(nn.Module):
+    """
+    单分支 STDC 版本：
+    - stem: x2, x4
+    - 第一个下采样 block 到 x8，作为“目标感受野锚点”
+    - 之后所有 block 都不再 stride=2
+    - 继续用 stride=1 的 STDC block 做细化
+
+    结构：
+        x2  -> ConvX(3x3, s=2)
+        x4  -> ConvX(3x3, s=2)
+        x8_anchor -> block(base, base*4, stride=2)   # 这里 RF ~ 63
+        x8_refine1 -> block(256, 256, stride=1)
+        x8_refine2 -> block(256, 512, stride=1)      # 只升通道，不降采样
+        x8_refine3 -> block(512, 512, stride=1)
+
+    返回：
+        feat8_anchor: 第一个 x8 block 输出（RF 锚点）
+        feat8_deep  : 更深的 x8 特征（仍是 x8 分辨率）
+    """
+    def __init__(
+        self,
+        base=64,
+        in_channels=3,
+        block_num=4,
+        type="cat",
+        num_classes=2
+    ):
+        super(ShallowNet_RF63, self).__init__()
+
+        if type == "cat":
+            block = CatBottleneck
+        elif type == "add":
+            block = AddBottleneck
+        else:
+            raise ValueError("type must be 'cat' or 'add'")
+
+        self.in_channels = in_channels
+
+        # stem
+        self.x2 = ConvX(in_channels, base // 2, 3, 2)   # x2
+        self.x4 = ConvX(base // 2, base, 3, 2)          # x4
+
+        # 第一个 x8 block：保留原始 stride=2
+        # 这是你要的“目标感受野锚点”，理论最大 RF 约为 63
+        self.stage1_down = block(base, base * 4, block_num, stride=2)   # x8, 256 ch
+
+        # 后面全部 stride=1，不再继续池化/下采样
+        self.stage1_refine = block(base * 4, base * 4, block_num, stride=1)   # x8, 256 ch
+        self.stage2_expand = block(base * 4, base * 8, block_num, stride=1)   # x8, 512 ch
+        self.stage2_refine = block(base * 8, base * 8, block_num, stride=1)   # x8, 512 ch
+
+        # 可选分类头，方便你调试
+        self.cls_feat8_anchor = ConvX(base * 4, num_classes, 3, 1)
+        self.cls_feat8_deep = ConvX(base * 8, num_classes, 3, 1)
+
+        self.init_params()
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal_(m.weight, mode='fan_out')
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, (nn.BatchNorm2d, nn.SyncBatchNorm)):
+                init.constant_(m.weight, 1)
+                init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                init.normal_(m.weight, std=0.001)
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+
+    def forward(self, x, cas3=False, return_logits=False):
+        feat2 = self.x2(x)
+        feat4 = self.x4(feat2)
+
+        # RF anchor ~ 63
+        feat8_anchor = self.stage1_down(feat4)
+
+        # 后续仍为 x8，只做细化
+        feat8_mid = self.stage1_refine(feat8_anchor)
+        feat8_deep = self.stage2_refine(self.stage2_expand(feat8_mid))
+
+        if return_logits:
+            logit_anchor = self.cls_feat8_anchor(feat8_anchor)
+            logit_deep = self.cls_feat8_deep(feat8_deep)
+            return logit_anchor, logit_deep
+
+        if cas3:
+            # 为了和你之前风格接近，返回 feat4、x8锚点、深层x8
+            return feat4, feat8_anchor, feat8_deep
+        else:
+            # 类似原来返回 feat8, feat16
+            # 这里只不过第二个不是 x16，而是更深的 x8
+            return feat8_anchor, feat8_deep

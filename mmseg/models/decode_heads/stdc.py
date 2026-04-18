@@ -29,6 +29,7 @@ from mmseg.models.sampler.dysample import DySample
 from other_utils.histogram import tensor_histogram
 from mmseg.models.decode_heads.isdhead import SRDecoder
 from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
+from .stdc_rf import ShallowNet_rf63
 
 
 
@@ -43,8 +44,10 @@ class MyStdcHead(BaseCascadeDecodeHead):
                 type='BCEDiceLoss'))
         self.down_ratio = down_ratio
         self.convert_shallow8=nn.Conv2d(256,self.channels,stride=1,kernel_size=1)
-        self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
-        # self.stdc_net = ShallowNet_lk(in_channels=3,num_classes=self.num_classes)
+        # self.stdc_net = ShallowNet_rf63(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        # self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
+        self.stdc_net = ShallowNet_lk(in_channels=3,num_classes=self.num_classes)
+        # self.stdc_net = ShallowNet_rep(in_channels=3,num_classes=self.num_classes)
         # self.stdc_net = ShallowNet_rep(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
         self.reduce = Reducer() if reduce else None
         self.convert_shallow16=nn.Conv2d(512,self.channels,stride=1,kernel_size=3,padding=1)

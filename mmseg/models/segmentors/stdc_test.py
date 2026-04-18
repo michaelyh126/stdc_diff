@@ -77,9 +77,11 @@ class StdcTest(EncoderDecoderRefine):
         # 大分辨率图像：参数传入的image， 输入refine_head中
         # 小分辨率图像：参数传入的image下采样到原来的0.25倍数，输入feature_extractor, 即原有的分支中
         prev_outputs = None
-        img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
-                                                       img.shape[-1] // self.down_scale])
-        x = self.extract_feat(img_os2)
+        # img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
+        #                                                img.shape[-1] // self.down_scale])
+        # x = self.extract_feat(img_os2)
+
+        x = self.extract_feat(img)
         out, prev_outputs = self.decode_head.forward_test(x, img_metas, self.test_cfg)
 
         out = self.refine_head.forward_test(img, prev_outputs, img_metas, self.test_cfg)
@@ -110,9 +112,11 @@ class StdcTest(EncoderDecoderRefine):
         """
         # img_os2:将deeplabv3输入的图像size下采样为原来的一半
         x=None
-        img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
-                                                       img.shape[-1] // self.down_scale])
-        x = self.extract_feat(img_os2)
+        # img_os2 = nn.functional.interpolate(img, size=[img.shape[-2] // self.down_scale,
+        #                                                img.shape[-1] // self.down_scale])
+        # x = self.extract_feat(img_os2)
+
+        x = self.extract_feat(img)
         out, prev_outputs = self.decode_head.forward_test(x, img_metas, self.test_cfg)
 
         img_refine=img

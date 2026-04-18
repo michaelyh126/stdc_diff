@@ -16,7 +16,10 @@ from .single_diff import SingleDiff
 from .stdc_test import StdcTest
 from .rue import RUE
 from .stdc import Stdc
+from .bisenet import BiseNet
+from .OMRF import OMRF
+from .WFormer import WFormer
 
 __all__ = ['BaseSegmentor', 'EncoderDecoder', 'CascadeEncoderDecoder',
            'EncoderDecoderRefine','IsdDiff','IsdHarrDiff','IsdDiffFast','IsdD','STDCDiff','STDCIn','IsdPid','DualDiff'
-           ,'PidUn','DualDistill','SingleDiff','StdcTest','RUE','Stdc']
+           ,'PidUn','DualDistill','SingleDiff','StdcTest','RUE','Stdc','BiseNet','OMRF','WFormer']
