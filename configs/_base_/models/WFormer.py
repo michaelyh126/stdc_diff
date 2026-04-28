@@ -1,7 +1,7 @@
 # model settings
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
-    type='WFormer',
+    type='WFormerSegmentor',
     num_stages=1,
     # pretrained='open-mmlab://resnet50_v1c',
     down_ratio=4,

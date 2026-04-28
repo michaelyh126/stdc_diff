@@ -1,5 +1,5 @@
 _base_ = [
-    '../_base_/models/stdc.py', '../_base_/datasets/aeril_512x512.py',
+    '../_base_/models/stdc.py', '../_base_/datasets/aeril_500x500.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_80k.py'
 ]
 checkpoint_teacher = '/root/autodl-tmp/Teacher_SegFormer_B3_city.pth'

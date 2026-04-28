@@ -14,11 +14,15 @@ from .inria_aerial import InriaAerialDataset
 from .road import RoadDataset
 from .camvid import CamVidDataSet
 from .deepglobe512 import DeepGlobeDataset512
+from .crag_mixed_pair_dataset import CragMixedPairDataset
+from .crag510_compose_dataset import Crag510ComposeDataset
+from .crag_alternate_dataset import CragAlternateDataset
 
 __all__ = [
     'CustomDataset', 'build_dataloader', 'ConcatDataset', 'RepeatDataset',
     'DATASETS', 'build_dataset', 'PIPELINES', 'CityscapesDataset',
     'PascalVOCDataset', 'ADE20KDataset', 'PascalContextDataset',
     'PascalContextDataset59', 'ChaseDB1Dataset', 'DRIVEDataset', 'HRFDataset',
-    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset','RoadDataset','CamVidDataSet','DeepGlobeDataset512'
+    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset','RoadDataset','CamVidDataSet','DeepGlobeDataset512','CragMixedPairDataset',
+    'Crag510ComposeDataset','CragAlternateDataset'
 ]

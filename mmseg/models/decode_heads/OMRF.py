@@ -741,7 +741,7 @@ def merge_patches(outputs, meta, out_size=None):
 
 @HEADS.register_module()
 class OMRFHead(BaseCascadeDecodeHead):
-    def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='pid', **kwargs):
+    def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='ori', **kwargs):
         super(OMRFHead, self).__init__(**kwargs)
         self.decoder_flag=decoder_flag
         self.patch_size=img_size[0]

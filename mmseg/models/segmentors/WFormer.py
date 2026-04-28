@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from other_utils.heatmap import visualize_feature_map
 
 @SEGMENTORS.register_module()
-class WFormer(EncoderDecoderPid):
+class WFormerSegmentor(EncoderDecoderPid):
     """Cascade Encoder Decoder segmentors.
 
     CascadeEncoderDecoder almost the same as EncoderDecoder, while decoders of
@@ -39,7 +39,7 @@ class WFormer(EncoderDecoderPid):
         self.is_frequency = is_frequency
         self.down_scale = down_ratio
         self.refine_input_ratio = refine_input_ratio
-        super(WFormer, self).__init__(
+        super(WFormerSegmentor, self).__init__(
             backbone=backbone,
             decode_head=decode_head,
             neck=neck,

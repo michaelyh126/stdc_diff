@@ -22,18 +22,18 @@ model = dict(
         #     loss_decode=dict(
         #         type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
         dict(
-            type='WFormer',
+            type='WFormerHead',
             in_channels=3,
             prev_channels=128,
             down_ratio=4,
-            img_size=(612,612),
             channels=128,
+            token_stride=8,
             num_classes=7,
             dropout_ratio=0.1,
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
+                type='FocalLoss', gamma=2.0, loss_weight=1.0)),
 
 
     ],

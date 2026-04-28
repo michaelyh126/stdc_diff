@@ -43,7 +43,9 @@ from .stdc import MyStdcHead
 from .biseNet_head import BiseNetHead
 from .uanet_head import UANet_head
 from .OMRF import OMRFHead
-from .WFormer import WFormer
+from .WFormer import WFormerHead
+from .coatNet_head import CoatNetHead
+from .stdc_cc_head import StdcCCHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -53,5 +55,6 @@ __all__ = [
     'SETRMLAHead', 'SegformerHead', 'RefineASPPHead', 'RefineBaseDecodeHead',
     'ISDHead','DiffHead','ISDDiffHead','SddHead','ISDDiffFastHead','STDCDiffHead',
     'STDCInHead','ISDPidHead','DualDiffHead','PidUnHead','DualDistillHead','VitGuidanceHead','SingleDiffHead',
-    'StdcTestHead','RUEHead','MyStdcHead','BiseNetHead','UANet_head','OMRFHead','WFormer'
+    'StdcTestHead','RUEHead','MyStdcHead','BiseNetHead','UANet_head','OMRFHead','WFormerHead','CoatNetHead',
+    'StdcCCHead'
 ]

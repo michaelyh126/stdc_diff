@@ -1,6 +1,7 @@
 import argparse
 import copy
 import os
+os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 import os.path as osp
 import time
 
