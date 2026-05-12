@@ -1,14 +1,20 @@
 # dataset settings
-dataset_type = 'InriaAerialDataset'
-data_root = '/root/autodl-tmp/aerial'
+dataset_type = 'DeepGlobeRandomPatchComposeDataset'
+val_dataset_type = 'DeepGlobeDataset'
+
+train_data_root = '/root/autodl-tmp/land-train306'
+test_data_root = '/root/autodl-tmp/land-train'
+
 img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-crop_size = (2500, 2500)
-#crop_size = (980, 980)
+    mean=[0, 0, 0],
+    std=[255, 255, 255],
+    to_rgb=True
+)
+
+crop_size = (1224, 1224)
+patch_size = (306, 306)
+
 train_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
-    dict(type='Resize', img_scale=(5000, 5000), ratio_range=(1., 1.)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
@@ -18,12 +24,12 @@ train_pipeline = [
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
+
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(2500, 2500),
-        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
+        img_scale=crop_size,
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -33,25 +39,37 @@ test_pipeline = [
             dict(type='Collect', keys=['img']),
         ])
 ]
+
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=8,
     workers_per_gpu=16,
+
     train=dict(
         type=dataset_type,
-        data_root=data_root,
-        img_dir='imgs/train',
-        ann_dir='labels/train',
-        pipeline=train_pipeline),
+        data_root=train_data_root,
+        img_dir='img_dir/train',
+        ann_dir='rgb2id/train',
+        img_suffix='.png',
+        seg_map_suffix='.png',
+        patch_size=patch_size,
+        out_size=crop_size,
+        ignore_index=255,
+        pipeline=train_pipeline
+    ),
+
     val=dict(
-        type=dataset_type,
-        data_root=data_root,
-        img_dir='imgs/test',
-        ann_dir='labels/test',
-        pipeline=test_pipeline),
+        type=val_dataset_type,
+        data_root=test_data_root,
+        img_dir='img_dir/test',
+        ann_dir='rgb2id/test',
+        pipeline=test_pipeline
+    ),
+
     test=dict(
-        type=dataset_type,
-        data_root='/root/autodl-tmp/aerial_2500',
-        # data_root=data_root,
-        img_dir='imgs/test',
-        ann_dir='labels/test',
-        pipeline=test_pipeline))
+        type=val_dataset_type,
+        data_root=test_data_root,
+        img_dir='img_dir/test',
+        ann_dir='rgb2id/test',
+        pipeline=test_pipeline
+    )
+)

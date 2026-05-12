@@ -1,14 +1,17 @@
 # dataset settings
 dataset_type = 'InriaAerialDataset'
-data_root = '/root/autodl-tmp/aerial'
+data_root = '/root/autodl-tmp/aerial_500'
 img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-crop_size = (2500, 2500)
+    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375],
+    # mean=[107.76, 112.19, 103.22],
+    # std=[52.33, 48.12, 46.84],
+    to_rgb=True)
+crop_size = (500, 500)
 #crop_size = (980, 980)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
-    dict(type='Resize', img_scale=(5000, 5000), ratio_range=(1., 1.)),
+    dict(type='Resize', img_scale=(500, 500), ratio_range=(1., 1.)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
@@ -22,7 +25,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(2500, 2500),
+        img_scale=(500, 500),
         # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
@@ -34,7 +37,7 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=50,
     workers_per_gpu=16,
     train=dict(
         type=dataset_type,
@@ -50,8 +53,7 @@ data = dict(
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
-        data_root='/root/autodl-tmp/aerial_2500',
-        # data_root=data_root,
+        data_root=data_root,
         img_dir='imgs/test',
         ann_dir='labels/test',
         pipeline=test_pipeline))
