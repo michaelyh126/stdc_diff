@@ -172,7 +172,7 @@ class Lap_Pyramid_Conv(nn.Module):
 class SingleDiffHead(BaseCascadeDecodeHead):
     psnr_sum = 0
     ssim_sum = 0
-    def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='aff', **kwargs):
+    def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='add', **kwargs):
         super(SingleDiffHead, self).__init__(**kwargs)
         self.decoder_flag=decoder_flag
         self.lap_prymaid_conv = Lap_Pyramid_Conv(num_high=2)

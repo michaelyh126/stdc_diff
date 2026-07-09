@@ -39,4 +39,3 @@ model = dict(
     ],
     auxiliary_head=dict(in_channels=256, channels=64, num_classes=2)
 )
-

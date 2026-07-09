@@ -5,5 +5,5 @@ optimizer_config = dict()
 lr_config = dict(policy='poly', power=0.9, min_lr=0.0, by_epoch=False, warmup='exp', warmup_iters=1000, warmup_ratio=1.0 / 1000)
 # runtime settings
 runner = dict(type='IterBasedRunner', max_iters=60000)
-checkpoint_config = dict(by_epoch=False, interval=6000)
-evaluation = dict(interval=6000, metric='mIoU')
+checkpoint_config = dict(by_epoch=False, interval=4000)
+evaluation = dict(interval=4000, metric='mIoU')

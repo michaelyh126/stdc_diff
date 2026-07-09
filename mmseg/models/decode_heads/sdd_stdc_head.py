@@ -135,12 +135,11 @@ class ShallowNet(nn.Module):
         self.x4 = nn.Sequential(self.features[1:2])
         self.x8 = nn.Sequential(self.features[2:4])
         self.x16 = nn.Sequential(self.features[4:6])
-        self.init_params()
-        # if pretrain_model:
-        #     print('use pretrain model {}'.format(pretrain_model))
-        #     self.init_weight(pretrain_model)
-        # else:
-        #     self.init_params()
+        if pretrain_model:
+            print('use pretrain model {}'.format(pretrain_model))
+            self.init_weight(pretrain_model)
+        else:
+            self.init_params()
 
     def init_weight(self, pretrain_model):
 

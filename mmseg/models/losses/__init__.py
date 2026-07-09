@@ -14,3 +14,5 @@ __all__ = [
     'weight_reduce_loss', 'weighted_loss', 'LovaszLoss', 'DiceLoss',
     'BCEDiceLoss', 'AlignmentLoss', 'FocalLoss', 'focal_loss'
 ]
+from .entropy_topk_loss import EntropyTopKCrossEntropyLoss
+__all__.append('EntropyTopKCrossEntropyLoss')

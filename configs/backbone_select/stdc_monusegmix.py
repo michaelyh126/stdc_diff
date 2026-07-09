@@ -2,7 +2,6 @@ _base_ = [
     '../_base_/models/stdc.py', '../_base_/datasets/monusegmix.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_10k.py'
 ]
-
 checkpoint_teacher = '/root/autodl-tmp/Teacher_SegFormer_B3_city.pth'
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
@@ -22,7 +21,11 @@ model = dict(
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
+                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+            entropy_topk_loss=dict(
+                enabled=True,
+                loss_weight=1.0,
+                topk_ratio=0.3)),
     ],
     auxiliary_head=dict(in_channels=256, channels=64, num_classes=2)
 )

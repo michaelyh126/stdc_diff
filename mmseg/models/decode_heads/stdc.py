@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from mmcv.cnn import ConvModule
 from ..builder import HEADS
+from ..builder import build_loss
 from .cascade_decode_head import BaseCascadeDecodeHead
 from .diff_fusion import FeatureFusionModule
 from .harr import HarrUp
@@ -22,6 +23,7 @@ from .pid import segmenthead,CBAMLayer
 from .sdd_stdc_head import ShallowNet
 from .stdc_rep_head import ShallowNet_rep
 from .stdc_lk_head import ShallowNet_lk
+from .stdc_lk_attn_head import ShallowNet_lk_attn
 from mmseg.models.losses.bce_dice_loss import BCEDiceLoss
 from mmseg.models.losses.detail_loss import DetailAggregateLoss
 from .isdhead import RelationAwareFusion
@@ -39,8 +41,16 @@ from .stdc_rep_stem_head import ShallowNetRepStem
 @HEADS.register_module()
 class MyStdcHead(BaseCascadeDecodeHead):
     def __init__(self, down_ratio, prev_channels,img_size, reduce=False,decoder_flag='aff', **kwargs):
+        entropy_topk_loss = kwargs.pop('entropy_topk_loss', None)
         super(MyStdcHead, self).__init__(**kwargs)
         self.decoder_flag=decoder_flag
+        self.entropy_topk_loss = None
+        if entropy_topk_loss is not None:
+            entropy_topk_loss = entropy_topk_loss.copy()
+            entropy_topk_loss_enabled = entropy_topk_loss.pop('enabled', False)
+            if entropy_topk_loss_enabled:
+                entropy_topk_loss.setdefault('type', 'EntropyTopKCrossEntropyLoss')
+                self.entropy_topk_loss = build_loss(entropy_topk_loss)
         self.shallow_diff=DiffHead(in_channels=1,in_index=3,channels=64,dropout_ratio=0.1,num_classes=self.num_classes,align_corners=False,loss_decode=dict(
                 type='BCEDiceLoss'))
         self.down_ratio = down_ratio
@@ -48,6 +58,7 @@ class MyStdcHead(BaseCascadeDecodeHead):
         # self.stdc_net = ShallowNet_rf63(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
         # self.stdc_net = ShallowNet(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
         self.stdc_net = ShallowNet_lk(in_channels=3,num_classes=self.num_classes)
+        # self.stdc_net = ShallowNet_lk_attn(in_channels=3,num_classes=self.num_classes)
         # self.stdc_net = ShallowNetRepStem(in_channels=3,num_classes=self.num_classes)
         # self.stdc_net = ShallowNet_rep(in_channels=3,num_classes=self.num_classes)
         # self.stdc_net = ShallowNet_rep(in_channels=3, pretrain_model="/root/autodl-tmp/STDCNet813M_73.91.tar",num_classes=self.num_classes)
@@ -65,6 +76,10 @@ class MyStdcHead(BaseCascadeDecodeHead):
         """Forward function."""
         # if train_flag==False:
         #     self.stdc_net.switch_to_deploy()
+        # _, _, h, w = inputs.size()
+        # inputs=F.interpolate(inputs, size=(h//2, w//2), mode='bilinear', align_corners=False)
+
+
         shallow_feat8, shallow_feat16 = self.stdc_net(inputs)
 
         # add fusion
@@ -95,6 +110,16 @@ class MyStdcHead(BaseCascadeDecodeHead):
             train_cfg=train_cfg,
             diff_pred_deep=mask)
         losses = self.losses(output, gt_semantic_seg)
+        if self.entropy_topk_loss is not None:
+            entropy_topk_logit = resize(
+                input=output,
+                size=gt_semantic_seg.shape[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
+            losses['loss_entropy_topk_ce'] = self.entropy_topk_loss(
+                entropy_topk_logit,
+                gt_semantic_seg,
+                ignore_index=self.ignore_index)
         losses_aux = self.losses(aux_output, gt_semantic_seg)
         return  losses,losses_aux
 

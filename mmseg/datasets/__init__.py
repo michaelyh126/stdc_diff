@@ -13,9 +13,11 @@ from .deepglobe import DeepGlobeDataset
 
 from .inria_aerial import InriaAerialDataset
 from .monuseg import MoNuSegDataset
+from .monuseg100 import MoNuSeg100Dataset
 from .monuseg200 import MoNuSeg200Dataset
 from .monuseg250 import MoNuSeg250Dataset
 from .monuseg_random_patch_compose_dataset import MoNuSegRandomPatchComposeDataset
+from .monuseg_sapr_dataset import MoNuSegSAPRDataset
 from .road import RoadDataset
 from .road256 import Road256Dataset
 from .camvid import CamVidDataSet
@@ -32,7 +34,7 @@ __all__ = [
     'DATASETS', 'build_dataset', 'PIPELINES', 'CityscapesDataset',
     'PascalVOCDataset', 'ADE20KDataset', 'PascalContextDataset',
     'PascalContextDataset59', 'ChaseDB1Dataset', 'DRIVEDataset', 'HRFDataset',
-    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset', 'MoNuSegDataset','MoNuSeg200Dataset','MoNuSeg250Dataset','MoNuSegRandomPatchComposeDataset','RoadDataset','Road256Dataset','CamVidDataSet','DeepGlobeDataset512','CragMixedPairDataset',
+    'STAREDataset', 'DeepGlobeDataset', 'InriaAerialDataset', 'MoNuSegDataset','MoNuSeg100Dataset','MoNuSeg200Dataset','MoNuSeg250Dataset','MoNuSegRandomPatchComposeDataset','MoNuSegSAPRDataset','RoadDataset','Road256Dataset','CamVidDataSet','DeepGlobeDataset512','CragMixedPairDataset',
     'Crag510ComposeDataset','CragAlternateDataset','CragRandomPatchComposeDataset','AerialComposeDataset',
     'DeepGlobeRandomPatchComposeDataset'
 ]

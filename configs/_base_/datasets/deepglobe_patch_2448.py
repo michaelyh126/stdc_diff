@@ -2,7 +2,7 @@
 dataset_type = 'DeepGlobeRandomPatchComposeDataset'
 val_dataset_type = 'DeepGlobeDataset'
 
-train_data_root = '/root/autodl-tmp/land-train306'
+train_data_root = '/root/autodl-tmp/land-train612'
 test_data_root = '/root/autodl-tmp/land-train'
 
 img_norm_cfg = dict(
@@ -12,9 +12,10 @@ img_norm_cfg = dict(
 )
 
 crop_size = (1224, 1224)
-patch_size = (306, 306)
+patch_size = (612, 612)
 
 train_pipeline = [
+    dict(type='Resize', img_scale=(2448, 2448), ratio_range=(0.5, 2.)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandomRotate', prob=0.5, degree=(90, 270)),
@@ -29,7 +30,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=crop_size,
+        img_scale=(2448,2448),
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),

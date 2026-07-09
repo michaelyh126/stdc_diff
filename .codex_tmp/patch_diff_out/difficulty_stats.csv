@@ -1,0 +1,4 @@
+image,label,difficulty,difficulty_score,boundary_density,boundary_percentile,entropy,dominant_ratio,non_dominant,valid_pixels,boundary_count,valid_boundary_pairs,class_counts
+p0.png,p0.png,easy,0.00000000,0.00000000,0.00000000,-0.00000000,1.00000000,0.00000000,250000,0,499000,{0: 250000}
+p1.png,p1.png,medium,0.65000000,0.00100200,0.50000000,1.00000000,0.50000000,0.50000000,250000,500,499000,"{0: 125000, 1: 125000}"
+p2.png,p2.png,hard,0.90000000,1.00000000,1.00000000,1.00000000,0.50000000,0.50000000,250000,499000,499000,"{0: 125000, 1: 125000}"

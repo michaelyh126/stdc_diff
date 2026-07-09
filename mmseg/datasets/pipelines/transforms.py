@@ -948,6 +948,65 @@ class PhotoMetricDistortion(object):
                      f'hue_delta={self.hue_delta})')
         return repr_str
 
+
+@PIPELINES.register_module()
+class PhotoMetricDistortionProb(PhotoMetricDistortion):
+    """PhotoMetricDistortion with configurable per-operation probability."""
+
+    def __init__(self,
+                 brightness_delta=32,
+                 contrast_range=(0.5, 1.5),
+                 saturation_range=(0.5, 1.5),
+                 hue_delta=18,
+                 prob=0.5):
+        super(PhotoMetricDistortionProb, self).__init__(
+            brightness_delta=brightness_delta,
+            contrast_range=contrast_range,
+            saturation_range=saturation_range,
+            hue_delta=hue_delta)
+        assert 0 <= prob <= 1
+        self.prob = prob
+
+    def brightness(self, img):
+        if random.rand() < self.prob:
+            return self.convert(
+                img,
+                beta=random.uniform(-self.brightness_delta,
+                                    self.brightness_delta))
+        return img
+
+    def contrast(self, img):
+        if random.rand() < self.prob:
+            return self.convert(
+                img,
+                alpha=random.uniform(self.contrast_lower,
+                                     self.contrast_upper))
+        return img
+
+    def saturation(self, img):
+        if random.rand() < self.prob:
+            img = mmcv.bgr2hsv(img)
+            img[:, :, 1] = self.convert(
+                img[:, :, 1],
+                alpha=random.uniform(self.saturation_lower,
+                                     self.saturation_upper))
+            img = mmcv.hsv2bgr(img)
+        return img
+
+    def hue(self, img):
+        if random.rand() < self.prob:
+            img = mmcv.bgr2hsv(img)
+            img[:, :,
+                0] = (img[:, :, 0].astype(int) +
+                      random.randint(-self.hue_delta, self.hue_delta)) % 180
+            img = mmcv.hsv2bgr(img)
+        return img
+
+    def __repr__(self):
+        repr_str = super(PhotoMetricDistortionProb, self).__repr__()
+        repr_str = repr_str[:-1] + f', prob={self.prob})'
+        return repr_str
+
 @PIPELINES.register_module()
 class CutMix:
     def __init__(self, prob=0.5):
